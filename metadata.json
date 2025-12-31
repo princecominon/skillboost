@@ -1,0 +1,9 @@
+
+{
+  "name": "SkillBoost - Career Ready Learning",
+  "description": "A high-performance micro-learning platform for college students to bridge the gap between academic theory and industry skills during lecture gaps.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
