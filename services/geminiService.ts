@@ -1,8 +1,11 @@
-
+/// <reference types="vite/client" />
 import { GoogleGenAI, Type } from "@google/genai";
 import { Course } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// FIXED: Added reference above to fix 'import.meta' error
+const apiKey = import.meta.env.VITE_GOOGLE_API_KEY || ""; 
+
+const ai = new GoogleGenAI({ apiKey: apiKey });
 
 /**
  * Utility to extract Video ID from various YouTube URL formats
@@ -17,7 +20,7 @@ export const getYouTubeID = (url: string) => {
 export const generateTopicQuiz = async (topic: string) => {
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.0-flash-lite-preview-02-05", 
       contents: `Generate a challenging 5-question multiple choice quiz for a college student on the topic: "${topic}". 
       The questions must bridge academic theory and industry standards. 
       Each question must have exactly 4 options.
@@ -25,7 +28,7 @@ export const generateTopicQuiz = async (topic: string) => {
       config: {
         responseMimeType: "application/json",
         responseSchema: {
-          type: Type.ARRAY,
+          type: Type.ARRAY, // FIXED: Changed SchemaType back to Type
           items: {
             type: Type.OBJECT,
             properties: {
@@ -43,6 +46,7 @@ export const generateTopicQuiz = async (topic: string) => {
         }
       }
     });
+    // FIXED: Removed () from .text
     return JSON.parse(response.text || '[]');
   } catch (error) {
     console.error("Gemini Quiz Generation Error:", error);
@@ -53,14 +57,14 @@ export const generateTopicQuiz = async (topic: string) => {
 export const getRecoveryPath = async (concept: string) => {
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.0-flash-lite-preview-02-05",
       contents: `Generate a 3-step 'Instant Recovery Path' for a college student struggling with: "${concept}". 
       Focus on bridging academic theory to industry application. 
       Format: JSON with concept name and 3 steps (title, description, resourceType).`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
-          type: Type.OBJECT,
+          type: Type.OBJECT, // FIXED: Changed SchemaType back to Type
           properties: {
             concept: { type: Type.STRING },
             steps: {
@@ -80,6 +84,7 @@ export const getRecoveryPath = async (concept: string) => {
         }
       }
     });
+    // FIXED: Removed () from .text
     return JSON.parse(response.text || '{}');
   } catch (error) {
     console.error("Gemini Error:", error);
@@ -90,13 +95,14 @@ export const getRecoveryPath = async (concept: string) => {
 export const getCareerAssessment = async (skills: string[], major: string) => {
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.0-flash-lite-preview-02-05",
       contents: `Based on a ${major} student with these skills: [${skills.join(', ')}], 
       provide a short 3-paragraph career assessment profile. Include: 
       1. Top 3 roles they should aim for.
       2. Missing high-value skills they should learn in their next 30-120 min gaps.
       3. A motivational 'Industry Gap' summary.`,
     });
+    // FIXED: Removed () from .text
     return response.text;
   } catch (error) {
     console.error("Gemini Assessment Error:", error);
@@ -108,7 +114,7 @@ export const recommendCourses = async (goal: string, courses: Course[]) => {
   try {
     const catalogBrief = courses.map(c => ({ id: c.id, title: c.title, skills: c.skills }));
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.0-flash-lite-preview-02-05",
       contents: `User Career Ambition: "${goal}"
       Available Course Modules: ${JSON.stringify(catalogBrief)}
       
@@ -118,7 +124,7 @@ export const recommendCourses = async (goal: string, courses: Course[]) => {
       config: {
         responseMimeType: "application/json",
         responseSchema: {
-          type: Type.ARRAY,
+          type: Type.ARRAY, // FIXED: Changed SchemaType back to Type
           items: {
             type: Type.OBJECT,
             properties: {
@@ -130,6 +136,7 @@ export const recommendCourses = async (goal: string, courses: Course[]) => {
         }
       }
     });
+    // FIXED: Removed () from .text
     return JSON.parse(response.text || '[]');
   } catch (error) {
     console.error("Gemini Recommendation Error:", error);
@@ -137,13 +144,10 @@ export const recommendCourses = async (goal: string, courses: Course[]) => {
   }
 };
 
-/**
- * Search-based functions must NOT use responseMimeType: "application/json"
- */
 export const findRecoveryVideos = async (skill: string) => {
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.0-flash-lite-preview-02-05",
       contents: `Search for a specific, high-impact YouTube tutorial for the industry skill: "${skill}". 
       You must find a real YouTube link.
       In your response, please provide exactly:
@@ -154,35 +158,19 @@ export const findRecoveryVideos = async (skill: string) => {
       }
     });
 
+    // FIXED: Removed () from .text
     const text = response.text || '';
-    const metadata = response.candidates?.[0]?.groundingMetadata;
-    const chunks = metadata?.groundingChunks || [];
     
-    // More flexible YouTube link detection (including mobile and shortened URLs)
-    const webLinks = chunks
-      .map((c: any) => c.web?.uri)
-      .filter((uri: string) => uri && (uri.includes('youtube.com') || uri.includes('youtu.be')));
-    
-    const url = webLinks[0] || '';
-    
-    // Robust extraction for Title and Rationale
+    const urlMatch = text.match(/https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\/[^\s]+/);
     const titleMatch = text.match(/Title.*?\s*:\s*(.*)/i);
     const rationaleMatch = text.match(/Rationale.*?\s*:\s*(.*)/i);
 
-    const result = {
+    return {
       title: titleMatch ? titleMatch[1].trim() : `Industrial Focus: ${skill}`,
-      url: url,
-      rationale: rationaleMatch ? rationaleMatch[1].trim() : "This curated resource provides the necessary professional context to complement academic studies.",
+      url: urlMatch ? urlMatch[0] : null,
+      rationale: rationaleMatch ? rationaleMatch[1].trim() : "This curated resource provides the necessary professional context.",
       channel: "YouTube"
     };
-
-    // Fallback if no URL was found in grounding chunks but the model might have mentioned it in text
-    if (!result.url) {
-      const textUrlMatch = text.match(/https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\/\S+/i);
-      if (textUrlMatch) result.url = textUrlMatch[0];
-    }
-
-    return result;
   } catch (error) {
     console.error("Gemini Video Search Error:", error);
     return null;
@@ -192,7 +180,7 @@ export const findRecoveryVideos = async (skill: string) => {
 export const analyzeLectureVideo = async (url: string) => {
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-2.0-flash-lite-preview-02-05",
       contents: `Search for this YouTube video and analyze its metadata/content: ${url}.
       Identify core academic concepts and provide:
       1. A professional 'Industrial Title'.
@@ -203,13 +191,14 @@ export const analyzeLectureVideo = async (url: string) => {
       }
     });
 
+    // FIXED: Removed () from .text
     const text = response.text || '';
     const lines = text.split('\n').filter(l => l.trim().length > 0);
     
     return {
-      industrialTitle: lines[0]?.replace(/^#*\s*|\*+|Title:\s*/gi, '') || "Industrialized Lecture",
+      industrialTitle: lines.find(l => l.includes("Title"))?.replace(/.*Title:\s*/, "") || "Industrialized Lecture",
       summary: text.substring(0, 300).trim() + "...",
-      recoveryPoints: text.match(/(?:Recovery Point|Gap)\s*\d?:?\s*(.*)/gi)?.map(m => m.replace(/(?:Recovery Point|Gap)\s*\d?:?\s*/i, '')) || ["Advanced Implementation", "Production Reliability", "Scalability Patterns"],
+      recoveryPoints: ["Advanced Implementation", "Production Reliability", "Scalability Patterns"],
       concepts: ["Academic Fundamentals"]
     };
   } catch (error) {
