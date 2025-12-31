@@ -20,7 +20,7 @@ export const getYouTubeID = (url: string) => {
 export const generateTopicQuiz = async (topic: string) => {
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash-lite-preview-02-05", 
+      model: "gemini-3-flash-preview", 
       contents: `Generate a challenging 5-question multiple choice quiz for a college student on the topic: "${topic}". 
       The questions must bridge academic theory and industry standards. 
       Each question must have exactly 4 options.
@@ -57,7 +57,7 @@ export const generateTopicQuiz = async (topic: string) => {
 export const getRecoveryPath = async (concept: string) => {
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash-lite-preview-02-05",
+      model: "gemini-3-flash-preview",
       contents: `Generate a 3-step 'Instant Recovery Path' for a college student struggling with: "${concept}". 
       Focus on bridging academic theory to industry application. 
       Format: JSON with concept name and 3 steps (title, description, resourceType).`,
@@ -95,7 +95,7 @@ export const getRecoveryPath = async (concept: string) => {
 export const getCareerAssessment = async (skills: string[], major: string) => {
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash-lite-preview-02-05",
+      model: "gemini-3-flash-preview",
       contents: `Based on a ${major} student with these skills: [${skills.join(', ')}], 
       provide a short 3-paragraph career assessment profile. Include: 
       1. Top 3 roles they should aim for.
@@ -114,7 +114,7 @@ export const recommendCourses = async (goal: string, courses: Course[]) => {
   try {
     const catalogBrief = courses.map(c => ({ id: c.id, title: c.title, skills: c.skills }));
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash-lite-preview-02-05",
+      model: "gemini-3-flash-preview",
       contents: `User Career Ambition: "${goal}"
       Available Course Modules: ${JSON.stringify(catalogBrief)}
       
@@ -147,7 +147,7 @@ export const recommendCourses = async (goal: string, courses: Course[]) => {
 export const findRecoveryVideos = async (skill: string) => {
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash-lite-preview-02-05",
+      model: "gemini-3-flash-preview",
       contents: `Search for a specific, high-impact YouTube tutorial for the industry skill: "${skill}". 
       You must find a real YouTube link.
       In your response, please provide exactly:
@@ -180,7 +180,7 @@ export const findRecoveryVideos = async (skill: string) => {
 export const analyzeLectureVideo = async (url: string) => {
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash-lite-preview-02-05",
+      model: "gemini-3-flash-preview",
       contents: `Search for this YouTube video and analyze its metadata/content: ${url}.
       Identify core academic concepts and provide:
       1. A professional 'Industrial Title'.
