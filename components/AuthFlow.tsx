@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Lock, Eye, EyeOff, ArrowLeft, User, BookOpen, GraduationCap, CheckCircle2, Apple, Search } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowLeft, User, BookOpen, GraduationCap, CheckCircle2, Apple, Search, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { UserProfile } from '../types';
 
@@ -112,11 +112,11 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
            // Create a fake "user" object that looks like Supabase data
            const fakeAppleUser = {
              user_metadata: {
-               full_name: "Apple Verified User",
-               major: "iOS Development",
-               year: "4"
+               full_name: "ADMIN", // <--- Sets name to ADMIN as requested
+               major: "Administration",
+               year: "Staff"
              },
-             email: "apple_vip@skillboost.com"
+             email: "admin@skillboost.com"
            };
            
            triggerSuccessAnimation(fakeAppleUser);
@@ -154,8 +154,11 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
     // Construct User Profile from Supabase Data
     const meta = user?.user_metadata || {};
     
+    // Logic: Use full_name (from Google or Manual Signup or "ADMIN" bypass) or fallback to email part
+    const name = meta.full_name || user?.email?.split('@')[0] || "Learner";
+
     const finalUserData: UserProfile = {
-      name: meta.full_name || user?.email?.split('@')[0] || "Learner",
+      name: name,
       major: meta.major || "Undecided",
       year: parseInt(meta.year) || 1,
       dailyGoalMinutes: 60,
@@ -451,9 +454,12 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
       {/* Social Loading Overlay - Auto Reset */}
       {loadingSocial && (
         <div className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-sm flex items-center justify-center animate-fade-in">
-          <div className="text-center">
+          <div className="text-center relative bg-black/50 p-8 rounded-[40px] border border-white/10">
+            <button onClick={() => setLoadingSocial(null)} className="absolute top-4 right-4 text-white/40 hover:text-white transition-colors">
+              <X size={20} />
+            </button>
             <div className="w-16 h-16 border-4 border-[#E91E63] border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
-            <p className="text-white font-bold uppercase tracking-widest text-sm">Connecting to {loadingSocial === 'google' ? 'Google' : 'Apple'}...</p>
+            <p className="text-white font-bold uppercase tracking-widest text-sm mb-6">Connecting to {loadingSocial === 'google' ? 'Google' : 'Apple'}...</p>
           </div>
         </div>
       )}
