@@ -23,12 +23,11 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
   const [major, setMajor] = useState('');
   const [year, setYear] = useState('1');
 
-  // --- AUTOMATIC RESET LOGIC (The Fix) ---
+  // --- AUTOMATIC RESET LOGIC ---
   useEffect(() => {
     // This function runs whenever the user comes back to the tab
     const handleReturn = () => {
       // If the page becomes visible or focused, stop the social loader
-      // This handles the case where the user clicks "Back" from Google
       setLoadingSocial(null);
     };
 
@@ -98,13 +97,40 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
     }
   };
 
-  // --- 3. HANDLE GOOGLE LOGIN ---
+  // --- 3. HANDLE SOCIAL LOGIN (With Apple Bypass) ---
   const handleSocialLogin = async (provider: 'google' | 'apple') => {
+    
+    // === APPLE ID BYPASS LOGIC ===
     if (provider === 'apple') {
-      alert("Apple Login requires additional configuration. Please use Google for now.");
+      const inputPass = prompt("Enter Admin Password for Apple Access:");
+      
+      if (inputPass === "SKILL_boost_1") {
+        setLoadingSocial('apple');
+        
+        // Simulate a network delay, then log in as a special Apple User
+        setTimeout(() => {
+           // Create a fake "user" object that looks like Supabase data
+           const fakeAppleUser = {
+             user_metadata: {
+               full_name: "Apple Verified User",
+               major: "iOS Development",
+               year: "4"
+             },
+             email: "apple_vip@skillboost.com"
+           };
+           
+           triggerSuccessAnimation(fakeAppleUser);
+           setLoadingSocial(null);
+        }, 1500);
+      } else {
+        if (inputPass !== null) { // Only alert if they didn't click Cancel
+             alert("Access Denied: Wrong Password.");
+        }
+      }
       return;
     }
     
+    // === GOOGLE LOGIC (Standard) ===
     setLoadingSocial(provider);
     
     const { error } = await supabase.auth.signInWithOAuth({
@@ -232,6 +258,8 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
             <Search size={18} className="text-red-500" />
             <span className="text-xs font-bold text-black">Google</span>
           </button>
+          
+          {/* APPLE BUTTON with BYPASS */}
           <button 
             disabled={!!loadingSocial}
             onClick={() => handleSocialLogin('apple')}
