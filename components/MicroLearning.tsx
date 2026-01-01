@@ -12,6 +12,7 @@ interface QuizQuestion {
 }
 
 const MicroLearning: React.FC = () => {
+  const [username, setUsername] = useState('');
   const [topic, setTopic] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeQuiz, setActiveQuiz] = useState<boolean>(false);
@@ -23,15 +24,20 @@ const MicroLearning: React.FC = () => {
   // NEW: State to hold real data from Supabase
   const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
 
-  // 1. AUTO-SAVE: Saves score when quiz finishes
+ // 1. AUTO-SAVE with Username
   useEffect(() => {
     if (showResults && quizQuestions.length > 0) {
-      saveQuizResult(topic, score, quizQuestions.length);
-      // Refresh leaderboard immediately after saving
-      getLeaderboard().then(data => setLeaderboardData(data));
+      // FIX: Ensure we pass all 4 arguments: (username, topic, score, total)
+      // If username is empty, we send "Anonymous"
+      const nameToSave = username.trim() || "Anonymous";
+      saveQuizResult(nameToSave, topic, score, quizQuestions.length);
+      
+      // Refresh leaderboard
+      setTimeout(() => {
+        getLeaderboard().then(data => setLeaderboardData(data));
+      }, 1000);
     }
   }, [showResults]);
-
   // 2. LOAD LEADERBOARD: Fetches data when page loads
   useEffect(() => {
     getLeaderboard().then(data => {
