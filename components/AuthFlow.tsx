@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, User, BookOpen, GraduationCap, CheckCircle2, Apple, Search } from 'lucide-react';
-import { supabase } from '../lib/supabase'; // Import real Supabase client
+import { supabase } from '../lib/supabase';
 import { UserProfile } from '../types';
 
 interface AuthFlowProps {
@@ -13,7 +13,7 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
   const [state, setState] = useState<AuthState>('login');
   const [showPassword, setShowPassword] = useState(false);
   const [isSuccessPopupVisible, setIsSuccessPopupVisible] = useState(false);
-  const [loading, setLoading] = useState(false); // General loading state
+  const [loading, setLoading] = useState(false);
   const [loadingSocial, setLoadingSocial] = useState<'google' | 'apple' | null>(null);
 
   // Form states
@@ -22,6 +22,27 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
   const [fullName, setFullName] = useState('');
   const [major, setMajor] = useState('');
   const [year, setYear] = useState('1');
+
+  // --- AUTOMATIC RESET LOGIC (The Fix) ---
+  useEffect(() => {
+    // This function runs whenever the user comes back to the tab
+    const handleReturn = () => {
+      // If the page becomes visible or focused, stop the social loader
+      // This handles the case where the user clicks "Back" from Google
+      setLoadingSocial(null);
+    };
+
+    // Listen for when the window becomes visible or focused again
+    window.addEventListener('focus', handleReturn);
+    document.addEventListener('visibilitychange', handleReturn);
+
+    // Cleanup listeners
+    return () => {
+      window.removeEventListener('focus', handleReturn);
+      document.removeEventListener('visibilitychange', handleReturn);
+    };
+  }, []);
+  // ---------------------------------------
 
   // Styles
   const inputClasses = "w-full bg-[#121212] border border-gray-800 rounded-xl py-4 pl-12 pr-12 text-gray-300 focus:outline-none focus:border-[#E91E63]/50 focus:ring-1 focus:ring-[#E91E63]/50 transition-all placeholder:text-gray-600";
@@ -45,7 +66,6 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
       alert(error.message);
       setLoading(false);
     } else {
-      // Login Success
       triggerSuccessAnimation(data.user);
     }
   };
@@ -74,7 +94,6 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
       alert(error.message);
       setLoading(false);
     } else {
-      // Signup Success
       triggerSuccessAnimation(data.user);
     }
   };
@@ -87,15 +106,18 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
     }
     
     setLoadingSocial(provider);
+    
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
+      options: {
+        redirectTo: window.location.origin 
+      }
     });
     
     if (error) {
       alert(error.message);
       setLoadingSocial(null);
     }
-    // Note: OAuth will redirect the page, so no need to stop loading manually
   };
 
   // --- 4. SUCCESS ANIMATION & DATA MAPPING ---
@@ -398,7 +420,7 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
         </div>
       )}
 
-      {/* Social Loading Overlay */}
+      {/* Social Loading Overlay - Auto Reset */}
       {loadingSocial && (
         <div className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-sm flex items-center justify-center animate-fade-in">
           <div className="text-center">
