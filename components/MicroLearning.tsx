@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Zap, Trophy, Timer, BrainCircuit, CheckCircle2, Search, RefreshCw, ArrowRight, Sparkles, X } from 'lucide-react';
+import { Trophy, CheckCircle2, Search, RefreshCw, ArrowRight, Sparkles, X } from 'lucide-react';
+// We keep LEADERBOARD as a backup if the database is empty
 import { LEADERBOARD } from '../constants';
-// Ensure these are correctly exported from your service file
+// Import the new database functions
 import { generateTopicQuiz, saveQuizResult, getLeaderboard } from '../services/geminiService';
 
 interface QuizQuestion {
@@ -12,38 +13,37 @@ interface QuizQuestion {
 
 const MicroLearning: React.FC = () => {
   const [topic, setTopic] = useState('');
-  const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeQuiz, setActiveQuiz] = useState<boolean>(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
   const [score, setScore] = useState(0);
   const [showResults, setShowResults] = useState(false);
+  
+  // NEW: State to hold real data from Supabase
+  const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
 
-  // --- AUTO-SAVE FEATURE ---
+  // 1. AUTO-SAVE: Saves score when quiz finishes
   useEffect(() => {
-    // This runs automatically when 'showResults' becomes true
     if (showResults && quizQuestions.length > 0) {
       saveQuizResult(topic, score, quizQuestions.length);
+      // Refresh leaderboard immediately after saving
+      getLeaderboard().then(data => setLeaderboardData(data));
     }
-  }, [showResults]); // Dependency array ensures it runs only when results trigger
+  }, [showResults]);
+
+  // 2. LOAD LEADERBOARD: Fetches data when page loads
   useEffect(() => {
-  // Load leaderboard when the page starts
-  const loadData = async () => {
-    const data = await getLeaderboard();
-    if (data.length > 0) {
-      setLeaderboardData(data);
-    }
-  };
-  loadData();
-}, [showResults]); // Reloads every time a quiz finishes!
+    getLeaderboard().then(data => {
+      if (data && data.length > 0) setLeaderboardData(data);
+    });
+  }, []);
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!topic.trim()) return;
 
     setIsGenerating(true);
-    // Call the AI Service
     const questions = await generateTopicQuiz(topic);
     
     if (questions && questions.length > 0) {
@@ -66,7 +66,7 @@ const MicroLearning: React.FC = () => {
     if (currentStep < quizQuestions.length - 1) {
       setCurrentStep(prev => prev + 1);
     } else {
-      setShowResults(true); // This triggers the useEffect above
+      setShowResults(true);
     }
   };
 
@@ -237,25 +237,34 @@ const MicroLearning: React.FC = () => {
             <h3 className="text-[11px] font-black text-gray-900 uppercase tracking-widest">Department Ranks</h3>
             <Trophy className="text-yellow-500" size={20} />
           </div>
+          
+          {/* UPDATED: Real Leaderboard Logic */}
           <div className="space-y-5 relative z-10">
-           {(leaderboardData.length > 0 ? leaderboardData : LEADERBOARD).map((user, idx) => (
-              <div key={user.name} className={`flex items-center justify-between p-4 rounded-[28px] transition-all ${user.name.includes('(You)') ? 'bg-[#1A0616] text-white shadow-xl shadow-[#1A0616]/20' : 'hover:bg-gray-50'}`}>
+            {(leaderboardData.length > 0 ? leaderboardData : LEADERBOARD).map((user, idx) => (
+              <div key={idx} className={`flex items-center justify-between p-4 rounded-[28px] transition-all ${idx === 0 ? 'bg-[#1A0616] text-white shadow-xl shadow-[#1A0616]/20' : 'hover:bg-gray-50'}`}>
                 <div className="flex items-center space-x-4">
                   <span className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-[10px] ${idx === 0 ? 'bg-yellow-400 text-white shadow-lg shadow-yellow-200' : idx === 1 ? 'bg-gray-200 text-gray-600' : idx === 2 ? 'bg-orange-100 text-orange-500' : 'bg-gray-50 text-gray-400'}`}>
                     {idx + 1}
                   </span>
                   <div>
-                    <p className={`text-xs font-bold tracking-tight ${user.name.includes('(You)') ? 'text-white' : 'text-gray-900'}`}>{user.name}</p>
-                    <p className="text-[9px] font-black uppercase tracking-widest opacity-40">Eng. Faculty</p>
+                    {/* Shows "Student X" if name is missing */}
+                    <p className={`text-xs font-bold tracking-tight ${idx === 0 ? 'text-white' : 'text-gray-900'}`}>
+                      {user.name || `Student ${idx + 1}`}
+                    </p>
+                    {/* Shows the Topic they studied */}
+                    <p className="text-[9px] font-black uppercase tracking-widest opacity-40">
+                      {user.topic || "Engineering"}
+                    </p>
                   </div>
                 </div>
                 <div className="text-right">
                   <p className="text-xs font-black">{user.score}</p>
-                  <p className="text-[8px] font-black uppercase tracking-widest opacity-40">Points</p>
+                  <p className="text-[8px] font-black uppercase tracking-widest opacity-40">XP</p>
                 </div>
               </div>
             ))}
           </div>
+
           <button className="w-full mt-10 py-5 bg-gray-50 text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] rounded-[24px] hover:bg-black hover:text-white transition-all">
             Expand Rankings
           </button>
