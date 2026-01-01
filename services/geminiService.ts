@@ -1,17 +1,17 @@
 /// <reference types="vite/client" />
-/* FIX: We use '@google/generative-ai' (the standard SDK), 
-   NOT '@google/genai' (the experimental one).
-*/
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { supabase } from '../lib/supabase';
 
+// Initialize the API Client
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GOOGLE_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+// ==========================================
+// 1. QUIZ & LEADERBOARD FUNCTIONS (New)
+// ==========================================
 
 export const generateTopicQuiz = async (topic: string) => {
   try {
-    // Switch to 1.5-flash to avoid quotas
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
     const prompt = `
       Create a difficult 5-question multiple choice quiz about "${topic}" for an engineering student.
       Return JSON only. Structure:
@@ -25,41 +25,31 @@ export const generateTopicQuiz = async (topic: string) => {
     `;
 
     const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-    
+    const text = result.response.text();
     const cleanText = text.replace(/```json|```/g, '').trim();
     return JSON.parse(cleanText);
   } catch (error) {
-    console.error("AI Service Error:", error);
+    console.error("Quiz Gen Error:", error);
     return null;
   }
 };
 
-/* FIX: This function now definitely accepts 4 arguments.
-   We explicitly type them to avoid TS errors.
-*/
 export const saveQuizResult = async (username: string, topic: string, score: number, total: number) => {
   console.log("Saving quiz for:", username);
-  
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from('quizzes')
-    .insert([
-      { 
-        username: username, 
-        topic: topic, 
-        score: score, 
-        total_questions: total,
-        user_major: 'Electrical Engineering' 
-      },
-    ]);
+    .insert([{ 
+      username: username, 
+      topic: topic, 
+      score: score, 
+      total_questions: total,
+      user_major: 'Electrical Engineering' 
+    }]);
 
   if (error) {
-    console.error("Error saving to Supabase:", error);
+    console.error("Supabase Error:", error);
     return false;
   }
-  
-  console.log("Success! Quiz saved.");
   return true;
 };
 
@@ -67,7 +57,7 @@ export const getLeaderboard = async () => {
   try {
     const { data, error } = await supabase
       .from('quizzes')
-      .select('username, topic, score, created_at')
+      .select('username, topic, score')
       .order('score', { ascending: false })
       .limit(5);
 
@@ -79,7 +69,105 @@ export const getLeaderboard = async () => {
       topic: entry.topic
     }));
   } catch (error) {
-    console.error("Error fetching leaderboard:", error);
+    console.error("Leaderboard Error:", error);
     return [];
+  }
+};
+
+// ==========================================
+// 2. DASHBOARD FUNCTIONS (Restored & Upgraded)
+// ==========================================
+
+export const getYouTubeID = (url: string) => {
+  if (!url) return null;
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  const match = url.match(regExp);
+  return (match && match[2].length === 11) ? match[2] : null;
+};
+
+export const analyzeLectureVideo = async (url: string) => {
+  try {
+    const prompt = `
+      Analyze this lecture context (simulated based on URL pattern): ${url}
+      Provide a JSON response with:
+      - industrialTitle: A catchy industry-relevant title
+      - summary: A 2-sentence summary suitable for a CTO
+      - recoveryPoints: An array of 3 bullet points on practical application
+      - concepts: An array of 3 academic concepts covered
+      
+      Return JSON only.
+    `;
+    const result = await model.generateContent(prompt);
+    const text = result.response.text().replace(/```json|```/g, '').trim();
+    return JSON.parse(text);
+  } catch (error) {
+    console.error("Video Analysis Error:", error);
+    // Fallback if AI fails so the app doesn't crash
+    return {
+      industrialTitle: "Lecture Analysis Unavailable",
+      summary: "Could not analyze video content at this time.",
+      recoveryPoints: ["Check internet connection", "Verify video URL", "Try again later"],
+      concepts: ["N/A"]
+    };
+  }
+};
+
+export const findRecoveryVideos = async (skill: string) => {
+  // Since Gemini 1.5 Flash doesn't browse the live web in this mode, we simulate a curated response
+  // or use the model's training data to suggest a generic search.
+  try {
+    const prompt = `Suggest a specific, real high-quality YouTube video title and search query for learning "${skill}". Return JSON: { title, rationale }`;
+    const result = await model.generateContent(prompt);
+    const data = JSON.parse(result.response.text().replace(/```json|```/g, '').trim());
+    
+    return {
+      title: data.title || `Mastering ${skill}`,
+      url: `https://www.youtube.com/results?search_query=${encodeURIComponent(skill + " tutorial")}`,
+      rationale: data.rationale || "Highly rated for industrial application.",
+      channel: "YouTube Search"
+    };
+  } catch (e) {
+    return { title: `Learn ${skill}`, url: "", rationale: "Recommended topic.", channel: "YouTube" };
+  }
+};
+
+export const recommendCourses = async (goal: string, courses: any[]) => {
+  try {
+    const catalogBrief = courses.map(c => ({ id: c.id, title: c.title }));
+    const prompt = `
+      User Goal: "${goal}"
+      Courses: ${JSON.stringify(catalogBrief)}
+      Select the best courses for this goal. Return a JSON array of objects: [{ "id": "...", "reason": "..." }]
+    `;
+    const result = await model.generateContent(prompt);
+    return JSON.parse(result.response.text().replace(/```json|```/g, '').trim());
+  } catch (e) {
+    return [];
+  }
+};
+
+export const getRecoveryPath = async (concept: string) => {
+  try {
+    const prompt = `
+      Generate a 3-step recovery path for "${concept}".
+      Return JSON: { "concept": "${concept}", "steps": [{ "title": "...", "description": "...", "resourceType": "video" }] }
+    `;
+    const result = await model.generateContent(prompt);
+    return JSON.parse(result.response.text().replace(/```json|```/g, '').trim());
+  } catch (e) {
+    return null;
+  }
+};
+
+export const getCareerAssessment = async (skills: string[], major: string) => {
+  try {
+    const prompt = `
+      Assess a ${major} student with skills: ${skills.join(', ')}.
+      Write 3 short paragraphs: 1. Top Roles, 2. Missing Skills, 3. Motivational Summary.
+    `;
+    const result = await model.generateContent(prompt);
+    return result.response.text();
+  } catch (e) {
+    return "Assessment unavailable.";
   }
 };
