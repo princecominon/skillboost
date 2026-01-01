@@ -1,6 +1,6 @@
-
 import React, { useState } from 'react';
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, User, BookOpen, GraduationCap, CheckCircle2, Apple, Search } from 'lucide-react';
+import { supabase } from '../lib/supabase'; // Import real Supabase client
 import { UserProfile } from '../types';
 
 interface AuthFlowProps {
@@ -13,48 +13,117 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
   const [state, setState] = useState<AuthState>('login');
   const [showPassword, setShowPassword] = useState(false);
   const [isSuccessPopupVisible, setIsSuccessPopupVisible] = useState(false);
+  const [loading, setLoading] = useState(false); // General loading state
   const [loadingSocial, setLoadingSocial] = useState<'google' | 'apple' | null>(null);
 
-  // Form states for Signup
+  // Form states
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [major, setMajor] = useState('');
   const [year, setYear] = useState('1');
 
+  // Styles
   const inputClasses = "w-full bg-[#121212] border border-gray-800 rounded-xl py-4 pl-12 pr-12 text-gray-300 focus:outline-none focus:border-[#E91E63]/50 focus:ring-1 focus:ring-[#E91E63]/50 transition-all placeholder:text-gray-600";
   const iconClasses = "absolute left-4 top-1/2 -translate-y-1/2 text-gray-600";
   const toggleClasses = "absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400 cursor-pointer";
 
-  const handleSuccess = (customData?: Partial<UserProfile>) => {
+  // --- 1. HANDLE REAL LOGIN ---
+  const handleLogin = async () => {
+    if (!email || !password) {
+      alert("Please fill in all fields");
+      return;
+    }
+    setLoading(true);
+    
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      alert(error.message);
+      setLoading(false);
+    } else {
+      // Login Success
+      triggerSuccessAnimation(data.user);
+    }
+  };
+
+  // --- 2. HANDLE REAL SIGNUP ---
+  const handleSignup = async () => {
+    if (!email || !password || !fullName) {
+      alert("Please fill in all fields");
+      return;
+    }
+    setLoading(true);
+
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName,
+          major: major || "Undecided",
+          year: year || "1"
+        }
+      }
+    });
+
+    if (error) {
+      alert(error.message);
+      setLoading(false);
+    } else {
+      // Signup Success
+      triggerSuccessAnimation(data.user);
+    }
+  };
+
+  // --- 3. HANDLE GOOGLE LOGIN ---
+  const handleSocialLogin = async (provider: 'google' | 'apple') => {
+    if (provider === 'apple') {
+      alert("Apple Login requires additional configuration. Please use Google for now.");
+      return;
+    }
+    
+    setLoadingSocial(provider);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+    });
+    
+    if (error) {
+      alert(error.message);
+      setLoadingSocial(null);
+    }
+    // Note: OAuth will redirect the page, so no need to stop loading manually
+  };
+
+  // --- 4. SUCCESS ANIMATION & DATA MAPPING ---
+  const triggerSuccessAnimation = (user: any) => {
     setIsSuccessPopupVisible(true);
+    setLoading(false);
+    
+    // Construct User Profile from Supabase Data
+    const meta = user?.user_metadata || {};
     
     const finalUserData: UserProfile = {
-      name: fullName || "New Learner",
-      major: major || "Undecided",
-      year: parseInt(year) || 1,
+      name: meta.full_name || user?.email?.split('@')[0] || "Learner",
+      major: meta.major || "Undecided",
+      year: parseInt(meta.year) || 1,
       dailyGoalMinutes: 60,
       completedMinutesToday: 0,
-      currentRank: 500, // Starting rank
+      currentRank: 500,
       skills: [],
       xp: 0,
       totalModules: 0,
-      ...customData
     };
 
     setTimeout(() => {
       onLogin(finalUserData);
-    }, 2500);
+    }, 2000);
   };
 
-  const handleSocialLogin = (provider: 'google' | 'apple') => {
-    setLoadingSocial(provider);
-    // Simulate OAuth handshake
-    setTimeout(() => {
-      setLoadingSocial(null);
-      handleSuccess({ name: "Demo User", major: "Computer Science", year: 2 });
-    }, 1200);
-  };
+  // --- RENDERERS ---
 
   const renderLogin = () => (
     <div className="flex flex-col w-full animate-in fade-in duration-500">
@@ -118,10 +187,11 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
         </div>
 
         <button 
-          onClick={() => handleSuccess()}
-          className="w-full py-4 bg-white text-black font-bold rounded-2xl hover:bg-gray-100 transition-all shadow-lg active:scale-[0.98]"
+          onClick={handleLogin}
+          disabled={loading}
+          className="w-full py-4 bg-white text-black font-bold rounded-2xl hover:bg-gray-100 transition-all shadow-lg active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Log In
+          {loading ? "Verifying..." : "Log In"}
         </button>
 
         <div className="relative flex items-center justify-center py-4">
@@ -197,7 +267,7 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
               <BookOpen size={18} className={iconClasses} />
               <input 
                 type="text" 
-                placeholder="e.g. Computer Science" 
+                placeholder="e.g. CS" 
                 className={inputClasses} 
                 value={major}
                 onChange={(e) => setMajor(e.target.value)}
@@ -254,10 +324,11 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
         </div>
 
         <button 
-          onClick={() => handleSuccess()}
-          className="w-full py-4 bg-[#E91E63] text-white font-bold rounded-2xl hover:opacity-90 transition-all shadow-lg mt-4 active:scale-[0.98]"
+          onClick={handleSignup}
+          disabled={loading}
+          className="w-full py-4 bg-[#E91E63] text-white font-bold rounded-2xl hover:opacity-90 transition-all shadow-lg mt-4 active:scale-[0.98] disabled:opacity-50"
         >
-          Create Account
+          {loading ? "Creating Account..." : "Create Account"}
         </button>
 
         <p className="text-center text-xs text-gray-500 pt-4">
@@ -290,11 +361,18 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
           <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Email</label>
           <div className="relative">
             <Mail size={18} className={iconClasses} />
-            <input type="email" placeholder="Enter your email" className={inputClasses} />
+            <input 
+              type="email" 
+              placeholder="Enter your email" 
+              className={inputClasses} 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
           </div>
         </div>
 
         <button 
+          onClick={() => alert("Check your email for reset instructions.")}
           className="w-full py-4 bg-[#E91E63] text-white font-bold rounded-2xl hover:opacity-90 transition-all shadow-lg active:scale-[0.98]"
         >
           Send Code

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, CheckCircle2, Search, RefreshCw, ArrowRight, Sparkles, X, User } from 'lucide-react';
+import { Trophy, CheckCircle2, Search, RefreshCw, ArrowRight, Sparkles, LogOut, X } from 'lucide-react';
 import { LEADERBOARD } from '../constants';
 import { generateTopicQuiz, saveQuizResult, getLeaderboard } from '../services/geminiService';
+import { supabase } from '../lib/supabase';
+import AuthFlow from './AuthFlow'; // Import the new Login Component
 
 interface QuizQuestion {
   question: string;
@@ -10,9 +12,12 @@ interface QuizQuestion {
 }
 
 const MicroLearning: React.FC = () => {
-  // 1. STATE FOR USERNAME (This creates the variable)
-  const [username, setUsername] = useState('');
-  
+  // --- AUTH STATE ---
+  // We replaced 'username' string with the full Supabase 'user' object
+  const [user, setUser] = useState<any>(null);
+  const [loadingSession, setLoadingSession] = useState(true);
+
+  // --- APP STATE ---
   const [topic, setTopic] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeQuiz, setActiveQuiz] = useState<boolean>(false);
@@ -22,18 +27,34 @@ const MicroLearning: React.FC = () => {
   const [showResults, setShowResults] = useState(false);
   const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
 
-  // 2. AUTO-SAVE (Uses the username)
+  // 1. CHECK SESSION ON LOAD (Logic to handle Login persistence)
   useEffect(() => {
-    if (showResults && quizQuestions.length > 0) {
-      const nameToSave = username.trim() || "Anonymous";
-      // Passing 4 arguments: name, topic, score, total
-      saveQuizResult(nameToSave, topic, score, quizQuestions.length);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setLoadingSession(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setLoadingSession(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // 2. AUTO-SAVE TO LEADERBOARD
+  useEffect(() => {
+    if (showResults && quizQuestions.length > 0 && user) {
+      // LOGIC: Get the real name from the logged-in user's metadata
+      const displayName = user.user_metadata.full_name || user.email?.split('@')[0] || "Student";
+      
+      saveQuizResult(displayName, topic, score, quizQuestions.length);
       
       setTimeout(() => {
         getLeaderboard().then(data => setLeaderboardData(data));
       }, 1000);
     }
-  }, [showResults]);
+  }, [showResults, user]);
 
   useEffect(() => {
     getLeaderboard().then(data => {
@@ -41,15 +62,18 @@ const MicroLearning: React.FC = () => {
     });
   }, []);
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setActiveQuiz(false);
+    setShowResults(false);
+    setTopic('');
+  };
+
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!topic.trim()) return;
     
-    // VALIDATION: Force user to enter name
-    if (!username.trim()) {
-      alert("Please enter your name first!");
-      return;
-    }
+    // VALIDATION REMOVED: We don't need to check !username because user is already logged in.
 
     setIsGenerating(true);
     // Note: service uses gemini-3-flash-preview as requested
@@ -86,6 +110,19 @@ const MicroLearning: React.FC = () => {
     setQuizQuestions([]);
   };
 
+  // --- RENDER LOGIC ---
+
+  // 1. Loading Screen (while checking if user is logged in)
+  if (loadingSession) {
+    return <div className="min-h-screen bg-black flex items-center justify-center text-white">Loading...</div>;
+  }
+
+  // 2. IF NOT LOGGED IN -> SHOW NEW AUTH FLOW
+  if (!user) {
+    return <AuthFlow onLogin={() => {}} />;
+  }
+
+  // 3. IF LOGGED IN -> SHOW DASHBOARD
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in duration-500">
       <div className="lg:col-span-2 space-y-6">
@@ -96,8 +133,8 @@ const MicroLearning: React.FC = () => {
             </div>
             <div>
               <h2 className="text-3xl font-black text-gray-900 tracking-tight">Quiz Complete!</h2>
-              {/* DISPLAY NAME IN RESULTS */}
-              <p className="text-gray-400 mt-2 font-medium">Player: <span className="text-black font-bold">{username}</span></p>
+              {/* DISPLAY REAL NAME IN RESULTS */}
+              <p className="text-gray-400 mt-2 font-medium">Player: <span className="text-black font-bold">{user.user_metadata.full_name || user.email?.split('@')[0]}</span></p>
             </div>
             
             <div className="flex justify-center space-x-12">
@@ -170,32 +207,28 @@ const MicroLearning: React.FC = () => {
         ) : (
           <div className="bg-[#1A0616] p-10 md:p-16 rounded-[48px] text-white relative overflow-hidden shadow-2xl">
             <div className="relative z-10">
-              <div className="flex items-center space-x-3 mb-6">
-                <Sparkles size={24} className="text-[#E91E63] animate-pulse" />
-                <span className="text-[10px] font-black tracking-[0.4em] uppercase text-[#E91E63]">Synthesis Engine v2.5</span>
+              <div className="flex items-center justify-between mb-6">
+                 <div className="flex items-center space-x-3">
+                    <Sparkles size={24} className="text-[#E91E63] animate-pulse" />
+                    <span className="text-[10px] font-black tracking-[0.4em] uppercase text-[#E91E63]">Synthesis Engine v2.5</span>
+                 </div>
+                 {/* Logout Button */}
+                 <button onClick={handleLogout} className="text-white/40 hover:text-white flex items-center gap-2 text-xs font-bold uppercase tracking-widest">
+                    <LogOut size={14} />
+                    <span>Sign Out</span>
+                 </button>
               </div>
               
               <h2 className="text-5xl md:text-7xl font-medium mb-6 tracking-tighter leading-[0.9]">
-                AI Custom <br /> <span className="italic font-light text-white/40">Gaps Checks</span>
+                Welcome, <br /> <span className="italic font-light text-[#E91E63]">{user.user_metadata.full_name?.split(' ')[0] || user.email?.split('@')[0]}</span>
               </h2>
               
               <p className="text-white/40 text-lg mb-12 max-w-md font-light leading-relaxed">
-                Enter your name and a topic. Our AI will synthesize a high-stakes 5-question gap check in seconds.
+                What topic are we mastering today?
               </p>
               
               <form onSubmit={handleGenerate} className="max-w-xl space-y-4">
-                {/* --- THIS IS THE NAME BOX --- */}
-                <div className="relative group">
-                  <User className="absolute left-6 top-1/2 -translate-y-1/2 text-white/20" size={20} />
-                  <input 
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="Enter your name (e.g. Prince)"
-                    className="w-full bg-white/5 border border-white/10 rounded-[28px] py-6 pl-16 pr-8 text-sm focus:outline-none focus:border-[#E91E63] focus:bg-white/10 transition-all placeholder:text-white/10"
-                  />
-                </div>
-                {/* --------------------------- */}
+                {/* --- NAME BOX REMOVED (User is logged in) --- */}
 
                 <div className="relative group">
                   <Search className={`absolute left-6 top-1/2 -translate-y-1/2 transition-colors duration-500 ${isGenerating ? 'text-[#E91E63] animate-spin' : 'text-white/20'}`} size={20} />
@@ -210,7 +243,7 @@ const MicroLearning: React.FC = () => {
 
                 <button 
                   type="submit"
-                  disabled={isGenerating || !topic.trim() || !username.trim()}
+                  disabled={isGenerating || !topic.trim()}
                   className="w-full md:w-auto px-12 py-5 bg-[#E91E63] text-white font-black rounded-[24px] hover:opacity-90 transition-all shadow-2xl shadow-[#E91E63]/20 flex items-center justify-center space-x-4 disabled:opacity-30 disabled:cursor-not-allowed uppercase tracking-widest text-[11px]"
                 >
                   {isGenerating ? (
