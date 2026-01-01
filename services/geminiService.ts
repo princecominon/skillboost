@@ -221,3 +221,26 @@ export const saveQuizResult = async (topic: string, score: number, total: number
   console.log("Success! Quiz saved.");
   return true;
 };
+// ... existing imports and functions ...
+
+export const getLeaderboard = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('quizzes')
+      .select('topic, score, created_at')
+      .order('score', { ascending: false })
+      .limit(5); // Get top 5 scores
+
+    if (error) throw error;
+    
+    // Format the data for your UI
+    return data.map((entry, index) => ({
+      name: `Student ${index + 1}`, // We don't have real names yet, so we use placeholders
+      score: entry.score * 50,      // Convert raw score to "XP"
+      topic: entry.topic
+    }));
+  } catch (error) {
+    console.error("Error fetching leaderboard:", error);
+    return [];
+  }
+};

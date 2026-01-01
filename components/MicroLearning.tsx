@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Zap, Trophy, Timer, BrainCircuit, CheckCircle2, Search, RefreshCw, ArrowRight, Sparkles, X } from 'lucide-react';
 import { LEADERBOARD } from '../constants';
 // Ensure these are correctly exported from your service file
-import { generateTopicQuiz, saveQuizResult } from '../services/geminiService';
+import { generateTopicQuiz, saveQuizResult, getLeaderboard } from '../services/geminiService';
 
 interface QuizQuestion {
   question: string;
@@ -12,6 +12,7 @@ interface QuizQuestion {
 
 const MicroLearning: React.FC = () => {
   const [topic, setTopic] = useState('');
+  const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeQuiz, setActiveQuiz] = useState<boolean>(false);
   const [currentStep, setCurrentStep] = useState(0);
@@ -26,7 +27,16 @@ const MicroLearning: React.FC = () => {
       saveQuizResult(topic, score, quizQuestions.length);
     }
   }, [showResults]); // Dependency array ensures it runs only when results trigger
-  // -------------------------
+  useEffect(() => {
+  // Load leaderboard when the page starts
+  const loadData = async () => {
+    const data = await getLeaderboard();
+    if (data.length > 0) {
+      setLeaderboardData(data);
+    }
+  };
+  loadData();
+}, [showResults]); // Reloads every time a quiz finishes!
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -228,7 +238,7 @@ const MicroLearning: React.FC = () => {
             <Trophy className="text-yellow-500" size={20} />
           </div>
           <div className="space-y-5 relative z-10">
-            {LEADERBOARD.map((user, idx) => (
+           {(leaderboardData.length > 0 ? leaderboardData : LEADERBOARD).map((user, idx) => (
               <div key={user.name} className={`flex items-center justify-between p-4 rounded-[28px] transition-all ${user.name.includes('(You)') ? 'bg-[#1A0616] text-white shadow-xl shadow-[#1A0616]/20' : 'hover:bg-gray-50'}`}>
                 <div className="flex items-center space-x-4">
                   <span className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-[10px] ${idx === 0 ? 'bg-yellow-400 text-white shadow-lg shadow-yellow-200' : idx === 1 ? 'bg-gray-200 text-gray-600' : idx === 2 ? 'bg-orange-100 text-orange-500' : 'bg-gray-50 text-gray-400'}`}>
