@@ -1,8 +1,8 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Zap, Trophy, Timer, BrainCircuit, CheckCircle2, Search, RefreshCw, ArrowRight, Sparkles, X } from 'lucide-react';
 import { LEADERBOARD } from '../constants';
-import { generateTopicQuiz } from '../services/geminiService';
+// Ensure these are correctly exported from your service file
+import { generateTopicQuiz, saveQuizResult } from '../services/geminiService';
 
 interface QuizQuestion {
   question: string;
@@ -19,11 +19,21 @@ const MicroLearning: React.FC = () => {
   const [score, setScore] = useState(0);
   const [showResults, setShowResults] = useState(false);
 
+  // --- AUTO-SAVE FEATURE ---
+  useEffect(() => {
+    // This runs automatically when 'showResults' becomes true
+    if (showResults && quizQuestions.length > 0) {
+      saveQuizResult(topic, score, quizQuestions.length);
+    }
+  }, [showResults]); // Dependency array ensures it runs only when results trigger
+  // -------------------------
+
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!topic.trim()) return;
 
     setIsGenerating(true);
+    // Call the AI Service
     const questions = await generateTopicQuiz(topic);
     
     if (questions && questions.length > 0) {
@@ -46,7 +56,7 @@ const MicroLearning: React.FC = () => {
     if (currentStep < quizQuestions.length - 1) {
       setCurrentStep(prev => prev + 1);
     } else {
-      setShowResults(true);
+      setShowResults(true); // This triggers the useEffect above
     }
   };
 

@@ -195,3 +195,29 @@ export const analyzeLectureVideo = async (url: string) => {
     concepts: ["Academic Fundamentals"]
   };
 };
+// Add this to the bottom of services/geminiService.ts
+
+import { supabase } from '../lib/supabase';
+
+export const saveQuizResult = async (topic: string, score: number, total: number) => {
+  console.log("Saving quiz...", { topic, score, total });
+  
+  const { data, error } = await supabase
+    .from('quizzes') 
+    .insert([
+      { 
+        topic: topic, 
+        score: score, 
+        total_questions: total,
+        user_major: 'Electrical Engineering' 
+      },
+    ]);
+
+  if (error) {
+    console.error("Error saving to Supabase:", error);
+    return false;
+  }
+  
+  console.log("Success! Quiz saved.");
+  return true;
+};
