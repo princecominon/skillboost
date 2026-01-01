@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, CheckCircle2, Search, RefreshCw, ArrowRight, Sparkles, X } from 'lucide-react';
-// We keep LEADERBOARD as a backup if the database is empty
+import { Trophy, CheckCircle2, Search, RefreshCw, ArrowRight, Sparkles, X, User } from 'lucide-react';
 import { LEADERBOARD } from '../constants';
-// Import the new database functions
 import { generateTopicQuiz, saveQuizResult, getLeaderboard } from '../services/geminiService';
 
 interface QuizQuestion {
@@ -12,7 +10,9 @@ interface QuizQuestion {
 }
 
 const MicroLearning: React.FC = () => {
+  // 1. STATE FOR USERNAME (This creates the variable)
   const [username, setUsername] = useState('');
+  
   const [topic, setTopic] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeQuiz, setActiveQuiz] = useState<boolean>(false);
@@ -20,25 +20,21 @@ const MicroLearning: React.FC = () => {
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
   const [score, setScore] = useState(0);
   const [showResults, setShowResults] = useState(false);
-  
-  // NEW: State to hold real data from Supabase
   const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
 
- // 1. AUTO-SAVE with Username
+  // 2. AUTO-SAVE (Uses the username)
   useEffect(() => {
     if (showResults && quizQuestions.length > 0) {
-      // FIX: Ensure we pass all 4 arguments: (username, topic, score, total)
-      // If username is empty, we send "Anonymous"
       const nameToSave = username.trim() || "Anonymous";
+      // Passing 4 arguments: name, topic, score, total
       saveQuizResult(nameToSave, topic, score, quizQuestions.length);
       
-      // Refresh leaderboard
       setTimeout(() => {
         getLeaderboard().then(data => setLeaderboardData(data));
       }, 1000);
     }
   }, [showResults]);
-  // 2. LOAD LEADERBOARD: Fetches data when page loads
+
   useEffect(() => {
     getLeaderboard().then(data => {
       if (data && data.length > 0) setLeaderboardData(data);
@@ -48,8 +44,15 @@ const MicroLearning: React.FC = () => {
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!topic.trim()) return;
+    
+    // VALIDATION: Force user to enter name
+    if (!username.trim()) {
+      alert("Please enter your name first!");
+      return;
+    }
 
     setIsGenerating(true);
+    // Note: service uses gemini-3-flash-preview as requested
     const questions = await generateTopicQuiz(topic);
     
     if (questions && questions.length > 0) {
@@ -93,7 +96,8 @@ const MicroLearning: React.FC = () => {
             </div>
             <div>
               <h2 className="text-3xl font-black text-gray-900 tracking-tight">Quiz Complete!</h2>
-              <p className="text-gray-400 mt-2 font-medium">Topic: <span className="text-black">{topic}</span></p>
+              {/* DISPLAY NAME IN RESULTS */}
+              <p className="text-gray-400 mt-2 font-medium">Player: <span className="text-black font-bold">{username}</span></p>
             </div>
             
             <div className="flex justify-center space-x-12">
@@ -176,10 +180,23 @@ const MicroLearning: React.FC = () => {
               </h2>
               
               <p className="text-white/40 text-lg mb-12 max-w-md font-light leading-relaxed">
-                Specify any industry topic or academic concept. Our AI will synthesize a high-stakes 5-question gap check in seconds.
+                Enter your name and a topic. Our AI will synthesize a high-stakes 5-question gap check in seconds.
               </p>
               
-              <form onSubmit={handleGenerate} className="max-w-xl space-y-6">
+              <form onSubmit={handleGenerate} className="max-w-xl space-y-4">
+                {/* --- THIS IS THE NAME BOX --- */}
+                <div className="relative group">
+                  <User className="absolute left-6 top-1/2 -translate-y-1/2 text-white/20" size={20} />
+                  <input 
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="Enter your name (e.g. Prince)"
+                    className="w-full bg-white/5 border border-white/10 rounded-[28px] py-6 pl-16 pr-8 text-sm focus:outline-none focus:border-[#E91E63] focus:bg-white/10 transition-all placeholder:text-white/10"
+                  />
+                </div>
+                {/* --------------------------- */}
+
                 <div className="relative group">
                   <Search className={`absolute left-6 top-1/2 -translate-y-1/2 transition-colors duration-500 ${isGenerating ? 'text-[#E91E63] animate-spin' : 'text-white/20'}`} size={20} />
                   <input 
@@ -193,7 +210,7 @@ const MicroLearning: React.FC = () => {
 
                 <button 
                   type="submit"
-                  disabled={isGenerating || !topic.trim()}
+                  disabled={isGenerating || !topic.trim() || !username.trim()}
                   className="w-full md:w-auto px-12 py-5 bg-[#E91E63] text-white font-black rounded-[24px] hover:opacity-90 transition-all shadow-2xl shadow-[#E91E63]/20 flex items-center justify-center space-x-4 disabled:opacity-30 disabled:cursor-not-allowed uppercase tracking-widest text-[11px]"
                 >
                   {isGenerating ? (
@@ -214,6 +231,7 @@ const MicroLearning: React.FC = () => {
           </div>
         )}
 
+        {/* LEADERBOARD SECTION */}
         <div className="bg-white p-10 rounded-[48px] border border-gray-100 shadow-sm space-y-8">
           <div className="flex items-center justify-between">
             <h3 className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Industry Milestones</h3>
@@ -244,7 +262,6 @@ const MicroLearning: React.FC = () => {
             <Trophy className="text-yellow-500" size={20} />
           </div>
           
-          {/* UPDATED: Real Leaderboard Logic */}
           <div className="space-y-5 relative z-10">
             {(leaderboardData.length > 0 ? leaderboardData : LEADERBOARD).map((user, idx) => (
               <div key={idx} className={`flex items-center justify-between p-4 rounded-[28px] transition-all ${idx === 0 ? 'bg-[#1A0616] text-white shadow-xl shadow-[#1A0616]/20' : 'hover:bg-gray-50'}`}>
@@ -253,11 +270,10 @@ const MicroLearning: React.FC = () => {
                     {idx + 1}
                   </span>
                   <div>
-                    {/* Shows "Student X" if name is missing */}
+                    {/* Shows Real Name */}
                     <p className={`text-xs font-bold tracking-tight ${idx === 0 ? 'text-white' : 'text-gray-900'}`}>
                       {user.name || `Student ${idx + 1}`}
                     </p>
-                    {/* Shows the Topic they studied */}
                     <p className="text-[9px] font-black uppercase tracking-widest opacity-40">
                       {user.topic || "Engineering"}
                     </p>
