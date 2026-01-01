@@ -4,10 +4,12 @@ import { supabase } from '../lib/supabase';
 
 // Initialize the API Client
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GOOGLE_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+// STRICT REQUEST: Using gemini-3-flash-preview
+const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
 // ==========================================
-// 1. QUIZ & LEADERBOARD FUNCTIONS (New)
+// 1. QUIZ & LEADERBOARD FUNCTIONS
 // ==========================================
 
 export const generateTopicQuiz = async (topic: string) => {
@@ -75,7 +77,7 @@ export const getLeaderboard = async () => {
 };
 
 // ==========================================
-// 2. DASHBOARD FUNCTIONS (Restored & Upgraded)
+// 2. DASHBOARD FUNCTIONS
 // ==========================================
 
 export const getYouTubeID = (url: string) => {
@@ -102,7 +104,6 @@ export const analyzeLectureVideo = async (url: string) => {
     return JSON.parse(text);
   } catch (error) {
     console.error("Video Analysis Error:", error);
-    // Fallback if AI fails so the app doesn't crash
     return {
       industrialTitle: "Lecture Analysis Unavailable",
       summary: "Could not analyze video content at this time.",
@@ -113,8 +114,6 @@ export const analyzeLectureVideo = async (url: string) => {
 };
 
 export const findRecoveryVideos = async (skill: string) => {
-  // Since Gemini 1.5 Flash doesn't browse the live web in this mode, we simulate a curated response
-  // or use the model's training data to suggest a generic search.
   try {
     const prompt = `Suggest a specific, real high-quality YouTube video title and search query for learning "${skill}". Return JSON: { title, rationale }`;
     const result = await model.generateContent(prompt);
