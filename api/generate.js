@@ -1,45 +1,53 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from "@google/genai";
 
 export default async function handler(req, res) {
-  // 1. Enable CORS (Allows your frontend to talk to this backend)
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', '*'); 
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-  );
+  // 1. Setup CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  // Handle browser pre-checks
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
+    return res.status(200).end();
   }
 
-  // 2. Setup Google AI with the Server Key
-  const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
-  
-  // Use the stable model with higher limits
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method Not Allowed' });
+  }
 
   try {
-    // 3. Get the prompt from the frontend
-    const { prompt } = req.body;
+    // 2. Load API Key
+    // We check both VITE_ and standard names to be safe
+    const apiKey = process.env.VITE_GOOGLE_API_KEY || process.env.GOOGLE_API_KEY;
 
-    if (!prompt) {
-      return res.status(400).json({ error: 'Prompt is required' });
+    if (!apiKey) {
+      return res.status(500).json({ error: "Server Configuration Error: API Key missing" });
     }
 
-    // 4. Generate the content
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
+    // 3. Initialize AI
+    const ai = new GoogleGenAI({ apiKey: apiKey });
+    
+    // 4. Get the EXACT data sent by the frontend
+    const { model, contents, config } = req.body;
 
-    // 5. Send result back to frontend
-    return res.status(200).json({ output: text });
+    // ERROR FIX: We no longer check for "prompt". We check for "contents".
+    if (!contents) {
+      return res.status(400).json({ error: "No content provided" });
+    }
+
+    // 5. Call Google AI with YOUR specific model
+    // This passes "gemini-3-flash-preview" exactly as requested
+    const response = await ai.models.generateContent({
+      model: model, 
+      contents: contents,
+      config: config
+    });
+
+    // 6. Return the result
+    return res.status(200).json({ text: response.text });
 
   } catch (error) {
     console.error("Backend Error:", error);
+    // If the model name is wrong, Google will return a 400 or 404 here
     return res.status(500).json({ error: error.message });
   }
 }
