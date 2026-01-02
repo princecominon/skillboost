@@ -1,7 +1,6 @@
-
 import React from 'react';
 import { UserProfile } from '../types';
-import { Zap, Target, Award, Settings, LogOut, ShieldCheck, Cpu, Database, Layout, Globe, ArrowRight, Star } from 'lucide-react';
+import { Zap, Target, Award, Settings, LogOut, ShieldCheck, Cpu, Database, Layout, Globe, ArrowRight, Star, Mail } from 'lucide-react';
 
 interface ProfileProps {
   user: UserProfile;
@@ -9,18 +8,32 @@ interface ProfileProps {
 }
 
 const Profile: React.FC<ProfileProps> = ({ user, onLogout }) => {
+  
+  // 1. Logic to handle "ADMINE" requirement
+  const resolveName = () => {
+    // If the system name is ADMIN, display ADMINE
+    if (user.name?.toUpperCase() === 'ADMIN') return 'ADMINE';
+    return user.name || '';
+  };
+
+  // 2. Logic to handle Empty States & Data Mapping
   const displayUser = {
     ...user,
+    name: resolveName(),
+    // Requirement: "anything which is not found is empty" (No "Undecided" defaults)
+    major: user.major || '', 
+    year: user.year || '',
+    email: user.email || '', 
     xp: user.xp || 0,
     totalModules: user.totalModules || 0,
     certificates: user.certificates || 0,
   };
 
   const skillCategories = [
-    { name: 'Architecture', val: displayUser.skills.length > 2 ? 85 : 15, icon: <Layout size={14} />, color: 'bg-blue-500' },
-    { name: 'Core Eng', val: displayUser.skills.length > 0 ? 72 : 5, icon: <Cpu size={14} />, color: 'bg-[#E91E63]' },
-    { name: 'Cloud Ops', val: displayUser.skills.includes('Docker') ? 40 : 2, icon: <Globe size={14} />, color: 'bg-purple-500' },
-    { name: 'Data Flow', val: displayUser.skills.includes('GraphQL') ? 64 : 0, icon: <Database size={14} />, color: 'bg-green-500' },
+    { name: 'Architecture', val: displayUser.skills?.length > 2 ? 85 : 15, icon: <Layout size={14} />, color: 'bg-blue-500' },
+    { name: 'Core Eng', val: displayUser.skills?.length > 0 ? 72 : 5, icon: <Cpu size={14} />, color: 'bg-[#E91E63]' },
+    { name: 'Cloud Ops', val: displayUser.skills?.includes('Docker') ? 40 : 2, icon: <Globe size={14} />, color: 'bg-purple-500' },
+    { name: 'Data Flow', val: displayUser.skills?.includes('GraphQL') ? 64 : 0, icon: <Database size={14} />, color: 'bg-green-500' },
   ];
 
   return (
@@ -29,8 +42,9 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout }) => {
       <div className="bg-[#1A0616] rounded-[60px] p-10 md:p-20 text-white relative overflow-hidden flex flex-col md:flex-row items-center gap-12 shadow-2xl">
         <div className="relative group shrink-0">
           <div className="absolute inset-0 bg-gradient-to-tr from-[#E91E63] to-purple-500 blur-[20px] opacity-40 group-hover:opacity-80 transition-opacity"></div>
+          {/* Avatar seeded with the resolved name */}
           <img 
-            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${displayUser.name}`} 
+            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${displayUser.name || 'User'}`} 
             className="w-48 h-48 rounded-[48px] border-4 border-white/10 relative z-10 object-cover shadow-2xl bg-[#2D0B26]" 
             alt={displayUser.name} 
           />
@@ -42,10 +56,38 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout }) => {
         <div className="flex-1 text-center md:text-left space-y-4">
           <div className="inline-flex items-center space-x-3 bg-white/5 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 mb-4">
             <div className="w-1.5 h-1.5 bg-[#E91E63] rounded-full animate-pulse"></div>
-            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#E91E63]">Industrial Rank #{displayUser.currentRank}</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#E91E63]">
+              Industrial Rank #{displayUser.currentRank || '---'}
+            </span>
           </div>
-          <h1 className="text-5xl md:text-7xl font-medium tracking-tighter leading-none">{displayUser.name}</h1>
-          <p className="text-white/40 text-lg md:text-2xl font-light italic">{displayUser.major} • Year {displayUser.year}</p>
+          
+          {/* Name Display */}
+          <h1 className="text-5xl md:text-7xl font-medium tracking-tighter leading-none">
+            {displayUser.name}
+          </h1>
+
+          {/* Details Section: Email, Major, Year (Only shown if data exists) */}
+          <div className="flex flex-col md:flex-row items-center md:items-start gap-4 text-white/40 text-sm md:text-lg font-light italic mt-2">
+            
+            {/* 1. Email Display */}
+            {displayUser.email && (
+              <div className="flex items-center gap-2 bg-white/5 px-3 py-1 rounded-lg">
+                <Mail size={16} />
+                <span>{displayUser.email}</span>
+              </div>
+            )}
+
+            {/* 2. Major & Year Display (Conditionals to avoid empty separators) */}
+            {(displayUser.major || displayUser.year) && (
+              <div className="flex items-center gap-2 px-2 py-1">
+                {displayUser.major && <span>{displayUser.major}</span>}
+                
+                {displayUser.major && displayUser.year && <span>•</span>}
+                
+                {displayUser.year && <span>Year {displayUser.year}</span>}
+              </div>
+            )}
+          </div>
           
           <div className="flex flex-wrap justify-center md:justify-start gap-4 pt-6">
             <button className="bg-white text-black px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-transform flex items-center space-x-3">
@@ -69,10 +111,10 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout }) => {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
         {[
-          { label: 'Total XP', val: displayUser.xp.toLocaleString(), icon: <Zap className="text-yellow-400" />, sub: displayUser.xp > 0 ? '+450 recently' : 'Start learning to earn XP' },
-          { label: 'Global Rank', val: `#${displayUser.currentRank}`, icon: <Target className="text-[#E91E63]" />, sub: 'Industrial tier: Emerging' },
+          { label: 'Total XP', val: displayUser.xp.toLocaleString(), icon: <Zap className="text-yellow-400" />, sub: displayUser.xp > 0 ? '+450 recently' : 'Start learning' },
+          { label: 'Global Rank', val: `#${displayUser.currentRank || '---'}`, icon: <Target className="text-[#E91E63]" />, sub: 'Industrial tier: Emerging' },
           { label: 'Certificates', val: displayUser.certificates, icon: <Award className="text-blue-500" />, sub: 'Vetted by Industry' },
-          { label: 'Goal Status', val: `${Math.round((displayUser.completedMinutesToday/displayUser.dailyGoalMinutes)*100)}%`, icon: <Star className="text-purple-500" />, sub: 'Daily streak: 1d' }
+          { label: 'Goal Status', val: displayUser.dailyGoalMinutes ? `${Math.round((displayUser.completedMinutesToday/displayUser.dailyGoalMinutes)*100)}%` : '0%', icon: <Star className="text-purple-500" />, sub: 'Daily streak: 1d' }
         ].map((stat, i) => (
           <div key={i} className="bg-white p-8 rounded-[40px] border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-500 group">
             <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
@@ -114,12 +156,12 @@ const Profile: React.FC<ProfileProps> = ({ user, onLogout }) => {
           </div>
 
           <div className="pt-8 flex flex-wrap gap-2">
-            {displayUser.skills.length > 0 ? displayUser.skills.map(s => (
+            {displayUser.skills && displayUser.skills.length > 0 ? displayUser.skills.map(s => (
               <span key={s} className="px-5 py-2 bg-white text-gray-400 text-[10px] font-black uppercase tracking-widest rounded-full border border-gray-100">
                 {s}
               </span>
             )) : (
-              <p className="text-xs text-gray-300 italic">No skills analyzed yet. Start a course to populate your matrix.</p>
+              <p className="text-xs text-gray-300 italic">No skills analyzed yet.</p>
             )}
           </div>
         </div>

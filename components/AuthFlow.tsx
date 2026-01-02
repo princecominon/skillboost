@@ -27,7 +27,6 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
   useEffect(() => {
     // This function runs whenever the user comes back to the tab
     const handleReturn = () => {
-      // If the page becomes visible or focused, stop the social loader
       setLoadingSocial(null);
     };
 
@@ -41,9 +40,7 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
       document.removeEventListener('visibilitychange', handleReturn);
     };
   }, []);
-  // ---------------------------------------
 
-  // Styles
   const inputClasses = "w-full bg-[#121212] border border-gray-800 rounded-xl py-4 pl-12 pr-12 text-gray-300 focus:outline-none focus:border-[#E91E63]/50 focus:ring-1 focus:ring-[#E91E63]/50 transition-all placeholder:text-gray-600";
   const iconClasses = "absolute left-4 top-1/2 -translate-y-1/2 text-gray-600";
   const toggleClasses = "absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400 cursor-pointer";
@@ -97,7 +94,7 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
     }
   };
 
-  // --- 3. HANDLE SOCIAL LOGIN (With Apple Bypass) ---
+  // --- 3. HANDLE SOCIAL LOGIN (With ADMIN Bypass) ---
   const handleSocialLogin = async (provider: 'google' | 'apple') => {
     
     // === APPLE ID BYPASS LOGIC ===
@@ -107,23 +104,23 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
       if (inputPass === "SKILL_boost_1") {
         setLoadingSocial('apple');
         
-        // Simulate a network delay, then log in as a special Apple User
+        // Simulate a network delay, then log in as ADMIN
         setTimeout(() => {
            // Create a fake "user" object that looks like Supabase data
-           const fakeAppleUser = {
+           const fakeAdminUser = {
              user_metadata: {
-               full_name: "ADMIN", // <--- Sets name to ADMIN as requested
+               full_name: "ADMIN", 
                major: "Administration",
                year: "Staff"
              },
              email: "admin@skillboost.com"
            };
            
-           triggerSuccessAnimation(fakeAppleUser);
+           triggerSuccessAnimation(fakeAdminUser);
            setLoadingSocial(null);
         }, 1500);
       } else {
-        if (inputPass !== null) { // Only alert if they didn't click Cancel
+        if (inputPass !== null) { 
              alert("Access Denied: Wrong Password.");
         }
       }
@@ -151,10 +148,8 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
     setIsSuccessPopupVisible(true);
     setLoading(false);
     
-    // Construct User Profile from Supabase Data
     const meta = user?.user_metadata || {};
-    
-    // Logic: Use full_name (from Google or Manual Signup or "ADMIN" bypass) or fallback to email part
+    // Fallback logic for name
     const name = meta.full_name || user?.email?.split('@')[0] || "Learner";
 
     const finalUserData: UserProfile = {
@@ -261,8 +256,6 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
             <Search size={18} className="text-red-500" />
             <span className="text-xs font-bold text-black">Google</span>
           </button>
-          
-          {/* APPLE BUTTON with BYPASS */}
           <button 
             disabled={!!loadingSocial}
             onClick={() => handleSocialLogin('apple')}

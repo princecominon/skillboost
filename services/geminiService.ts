@@ -3,10 +3,11 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { supabase } from '../lib/supabase';
 
 // Initialize the API Client
-const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GOOGLE_API_KEY);
+const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
 
 // STRICT REQUEST: Using gemini-3-flash-preview
-const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+// Note: If 'gemini-3-flash-preview' is not available to your key yet, fallback to 'gemini-1.5-flash'
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); 
 
 // ==========================================
 // 1. QUIZ & LEADERBOARD FUNCTIONS
@@ -38,6 +39,7 @@ export const generateTopicQuiz = async (topic: string) => {
 
 export const saveQuizResult = async (username: string, topic: string, score: number, total: number) => {
   console.log("Saving quiz for:", username);
+  // Ensure you have a 'quizzes' table in Supabase
   const { error } = await supabase
     .from('quizzes')
     .insert([{ 

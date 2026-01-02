@@ -1,7 +1,5 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Course, UserProfile } from './types';
-import { MOCK_USER } from './constants';
 import Dashboard from './components/Dashboard';
 import CourseView from './components/CourseView';
 import CoursePlayer from './components/CoursePlayer';
@@ -11,13 +9,55 @@ import Tutorials from './components/Tutorials';
 import Profile from './components/Profile';
 import AuthFlow from './components/AuthFlow';
 import BottomNav from './components/BottomNav';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, LogOut } from 'lucide-react';
+import { supabase } from './lib/supabase';
 
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState<UserProfile>(MOCK_USER);
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // 1. CHECK SESSION ON APP LOAD
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        // Map session to UserProfile
+        const meta = session.user.user_metadata;
+        const mappedUser: UserProfile = {
+          name: meta.full_name || session.user.email?.split('@')[0] || 'Learner',
+          major: meta.major || '',
+          year: meta.year || '',
+          dailyGoalMinutes: 60,
+          completedMinutesToday: 0,
+          currentRank: 500,
+          skills: [],
+          xp: 0,
+          totalModules: 0,
+          certificates: 0
+        };
+        
+        setUser(mappedUser);
+        setIsAuthenticated(true);
+      }
+      setLoading(false);
+    };
+
+    checkSession();
+
+    // Listen for auth changes (e.g. token expiry)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        setIsAuthenticated(false);
+        setUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const navigateTo = (view: View, course?: Course) => {
     setCurrentView(view);
@@ -28,16 +68,24 @@ const App: React.FC = () => {
   const handleLogin = (userData?: UserProfile) => {
     if (userData) {
       setUser(userData);
+      setIsAuthenticated(true);
     }
-    setIsAuthenticated(true);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setIsAuthenticated(false);
+    setUser(null);
     setCurrentView('dashboard');
   };
 
-  if (!isAuthenticated) {
+  // --- RENDER LOGIC ---
+
+  if (loading) {
+    return <div className="min-h-screen bg-white flex items-center justify-center text-black font-bold">Loading SkillBoost...</div>;
+  }
+
+  if (!isAuthenticated || !user) {
     return <AuthFlow onLogin={handleLogin} />;
   }
 
@@ -64,7 +112,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white text-[#1A1A1A]">
-      {/* Top Navigation - Agency Style */}
+      {/* Top Navigation */}
       <header className="fixed top-0 left-0 right-0 h-20 bg-white/80 backdrop-blur-xl border-b border-gray-100 z-50 px-6 md:px-12 flex items-center justify-between">
         <div className="flex items-center space-x-12">
           <div className="text-xl font-black tracking-tighter cursor-pointer" onClick={() => navigateTo('dashboard')}>
@@ -79,6 +127,7 @@ const App: React.FC = () => {
             <button onClick={() => navigateTo('tutorials')} className={`${currentView === 'tutorials' ? 'text-black' : 'hover:text-black transition-colors'}`}>Vault</button>
           </nav>
         </div>
+        
         <div className="flex items-center space-x-6">
           <button 
             onClick={handleLogout}
@@ -108,7 +157,7 @@ const App: React.FC = () => {
       {/* Floating Bottom Navigation */}
       <BottomNav activeView={currentView} onNavigate={navigateTo} />
 
-      {/* Footer - Minimal Agency Style */}
+      {/* Footer */}
       <footer className="bg-white border-t border-gray-100 py-20 px-6 md:px-12">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
           <div className="space-y-6">

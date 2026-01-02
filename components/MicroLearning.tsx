@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, CheckCircle2, Search, RefreshCw, ArrowRight, Sparkles, LogOut, X } from 'lucide-react';
+import { Trophy, CheckCircle2, Search, RefreshCw, ArrowRight, Sparkles, User, X } from 'lucide-react';
 import { LEADERBOARD } from '../constants';
 import { generateTopicQuiz, saveQuizResult, getLeaderboard } from '../services/geminiService';
-import { supabase } from '../lib/supabase';
-import AuthFlow from './AuthFlow'; 
+
+// Note: AuthFlow and Supabase imports removed as they are no longer needed
 
 interface QuizQuestion {
   question: string;
@@ -12,8 +12,17 @@ interface QuizQuestion {
 }
 
 const MicroLearning: React.FC = () => {
-  const [user, setUser] = useState<any>(null);
-  const [loadingSession, setLoadingSession] = useState(true);
+  // --- MOCK AUTH STATE (No Login Required) ---
+  // We initialize the user immediately with a default profile
+  const [user, setUser] = useState<any>({
+    user_metadata: {
+      full_name: "Future Engineer", // Default Profile Name
+      major: "General",
+      year: "1"
+    },
+    email: "guest@skillboost.app"
+  });
+
   const [topic, setTopic] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeQuiz, setActiveQuiz] = useState<boolean>(false);
@@ -23,28 +32,17 @@ const MicroLearning: React.FC = () => {
   const [showResults, setShowResults] = useState(false);
   const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
 
-  // 1. CHECK SESSION ON LOAD (Logic to handle Login persistence)
+  // 1. LOAD LEADERBOARD
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) setUser(session.user);
-      setLoadingSession(false);
+    getLeaderboard().then(data => {
+      if (data && data.length > 0) setLeaderboardData(data);
     });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) setUser(session.user);
-      else setUser(null); // Reset user if logged out
-      setLoadingSession(false);
-    });
-
-    return () => subscription.unsubscribe();
   }, []);
 
-  // 2. AUTO-SAVE TO LEADERBOARD
+  // 2. AUTO-SAVE RESULT
   useEffect(() => {
     if (showResults && quizQuestions.length > 0 && user) {
-      // LOGIC: Get the real name from the logged-in user's metadata (Google or ADMIN)
-      const displayName = user.user_metadata.full_name || user.email?.split('@')[0] || "Student";
-      
+      const displayName = user.user_metadata.full_name;
       saveQuizResult(displayName, topic, score, quizQuestions.length);
       
       setTimeout(() => {
@@ -53,39 +51,12 @@ const MicroLearning: React.FC = () => {
     }
   }, [showResults, user]);
 
-  useEffect(() => {
-    getLeaderboard().then(data => {
-      if (data && data.length > 0) setLeaderboardData(data);
-    });
-  }, []);
-
-  // --- HANDLER FOR BYPASS LOGIN (Apple/Admin) ---
-  const handleAuthFlowLogin = (userData: any) => {
-    // Create a fake user object for the state to allow access
-    const fakeUser = {
-        id: 'admin-bypass',
-        email: 'admin@skillboost.com',
-        user_metadata: { 
-            full_name: userData.name // This will be "ADMIN" from AuthFlow
-        }
-    };
-    setUser(fakeUser);
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setUser(null); // Clear local state immediately
-    setActiveQuiz(false);
-    setShowResults(false);
-    setTopic('');
-  };
-
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!topic.trim()) return;
     
     setIsGenerating(true);
-    // Note: service uses gemini-3-flash-preview as requested
+    // Uses gemini-3-flash-preview
     const questions = await generateTopicQuiz(topic);
     
     if (questions && questions.length > 0) {
@@ -119,19 +90,9 @@ const MicroLearning: React.FC = () => {
     setQuizQuestions([]);
   };
 
-  // --- RENDER LOGIC ---
+  // --- RENDER ---
+  // No loading check or auth check needed. Direct render of Dashboard.
 
-  // 1. Loading Screen
-  if (loadingSession) {
-    return <div className="min-h-screen bg-black flex items-center justify-center text-white">Loading...</div>;
-  }
-
-  // 2. IF NOT LOGGED IN -> SHOW AUTH FLOW
-  if (!user) {
-    return <AuthFlow onLogin={handleAuthFlowLogin} />;
-  }
-
-  // 3. IF LOGGED IN -> SHOW DASHBOARD
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in duration-500">
       <div className="lg:col-span-2 space-y-6">
@@ -142,8 +103,8 @@ const MicroLearning: React.FC = () => {
             </div>
             <div>
               <h2 className="text-3xl font-black text-gray-900 tracking-tight">Quiz Complete!</h2>
-              {/* DISPLAY REAL NAME IN RESULTS (No Manual Input) */}
-              <p className="text-gray-400 mt-2 font-medium">Player: <span className="text-black font-bold">{user.user_metadata.full_name || user.email?.split('@')[0]}</span></p>
+              {/* Uses Default Profile Name */}
+              <p className="text-gray-400 mt-2 font-medium">Player: <span className="text-black font-bold">{user.user_metadata.full_name}</span></p>
             </div>
             
             <div className="flex justify-center space-x-12">
@@ -221,15 +182,15 @@ const MicroLearning: React.FC = () => {
                     <Sparkles size={24} className="text-[#E91E63] animate-pulse" />
                     <span className="text-[10px] font-black tracking-[0.4em] uppercase text-[#E91E63]">Synthesis Engine v2.5</span>
                  </div>
-                 {/* Logout Button */}
-                 <button onClick={handleLogout} className="text-white/40 hover:text-white flex items-center gap-2 text-xs font-bold uppercase tracking-widest">
-                    <LogOut size={14} />
-                    <span>Sign Out</span>
-                 </button>
+                 {/* Static User Badge */}
+                 <div className="flex items-center gap-2 px-4 py-2 bg-white/10 rounded-full">
+                    <User size={14} className="text-[#E91E63]" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-white">Student Access</span>
+                 </div>
               </div>
               
               <h2 className="text-5xl md:text-7xl font-medium mb-6 tracking-tighter leading-[0.9]">
-                Welcome, <br /> <span className="italic font-light text-[#E91E63]">{user.user_metadata.full_name?.split(' ')[0] || user.email?.split('@')[0]}</span>
+                Welcome, <br /> <span className="italic font-light text-[#E91E63]">{user.user_metadata.full_name}</span>
               </h2>
               
               <p className="text-white/40 text-lg mb-12 max-w-md font-light leading-relaxed">
@@ -237,8 +198,6 @@ const MicroLearning: React.FC = () => {
               </p>
               
               <form onSubmit={handleGenerate} className="max-w-xl space-y-4">
-                {/* --- NAME INPUT BOX REMOVED --- */}
-
                 <div className="relative group">
                   <Search className={`absolute left-6 top-1/2 -translate-y-1/2 transition-colors duration-500 ${isGenerating ? 'text-[#E91E63] animate-spin' : 'text-white/20'}`} size={20} />
                   <input 
