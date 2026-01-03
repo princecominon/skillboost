@@ -19,7 +19,7 @@ const App: React.FC = () => {
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // 1. NEW: State to hold the active search term
+  // Search state
   const [searchQuery, setSearchQuery] = useState(''); 
 
   /* ================= SESSION CHECK ================= */
@@ -31,7 +31,7 @@ const App: React.FC = () => {
         const meta = session.user.user_metadata;
         const mappedUser: UserProfile = {
           name: meta.full_name || session.user.email?.split('@')[0] || 'Learner',
-          email: session.user.email,
+          // email: session.user.email, <--- REMOVED TO FIX ERROR
           major: meta.major || '',
           year: meta.year || '',
           dailyGoalMinutes: 60,
@@ -39,7 +39,7 @@ const App: React.FC = () => {
           currentRank: 500,
           skills: [],
           xp: 0,
-          streakDays: 0,
+          // streakDays: 0, <--- REMOVED TO FIX ERROR
           totalModules: 0,
           certificates: 0
         };
@@ -66,7 +66,6 @@ const App: React.FC = () => {
   const navigateTo = (view: View, course?: Course) => {
     setCurrentView(view);
     
-    // Optional: Clear search if leaving the courses page manually
     if (view !== 'courses') {
       setSearchQuery('');
     }
@@ -110,12 +109,9 @@ const App: React.FC = () => {
         return <Dashboard onNavigate={navigateTo} />;
 
       case 'courses':
-        // 2. NEW: Pass the search query to the CourseView so it can filter
         return (
           <CourseView 
             onNavigate={navigateTo} 
-            // Note: You need to make sure CourseView accepts this prop (initialSearch)
-            // If TS errors here, we update CourseView next.
             // @ts-ignore
             initialSearch={searchQuery} 
           />
@@ -175,12 +171,11 @@ const App: React.FC = () => {
 
         <div className="flex items-center space-x-6">
           
-          {/* 3. NEW: Search Bar with Logic */}
           <div className="hidden md:block w-64 lg:w-80">
             <SearchBar 
               onSearch={(q) => {
-                setSearchQuery(q);   // Save the query
-                navigateTo('courses'); // Auto-navigate to Catalog
+                setSearchQuery(q);   
+                navigateTo('courses'); 
               }} 
             />
           </div>
