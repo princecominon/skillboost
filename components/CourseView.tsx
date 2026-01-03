@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MOCK_COURSES } from '../constants';
 import { View, Course } from '../types';
 import { 
   Filter, 
-  ArrowRight, 
   Sparkles, 
   RefreshCcw, 
   BrainCircuit, 
@@ -12,9 +11,7 @@ import {
   Info, 
   Play, 
   Youtube,
-  AlertCircle,
-  CheckCircle2,
-  ExternalLink
+  X
 } from 'lucide-react';
 import { 
   recommendCourses, 
@@ -26,6 +23,7 @@ import { supabase } from '../lib/supabase';
 
 interface CourseViewProps {
   onNavigate: (view: View, course?: Course) => void;
+  initialSearch?: string; // <--- 1. ADDED THIS PROP
 }
 
 interface AIRecommendation {
@@ -46,8 +44,16 @@ interface RecoveryStep {
   youtubeLink: string;
 }
 
-const CourseView: React.FC<CourseViewProps> = ({ onNavigate }) => {
+const CourseView: React.FC<CourseViewProps> = ({ onNavigate, initialSearch = '' }) => {
   const [filter, setFilter] = useState('All');
+  
+  // 2. ADDED SEARCH STATE AND EFFECT
+  const [searchTerm, setSearchTerm] = useState(initialSearch);
+
+  useEffect(() => {
+    setSearchTerm(initialSearch);
+  }, [initialSearch]);
+
   const [aiGoal, setAiGoal] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [recommendations, setRecommendations] = useState<AIRecommendation[]>([]);
@@ -57,26 +63,30 @@ const CourseView: React.FC<CourseViewProps> = ({ onNavigate }) => {
 
   const categories = ['All', 'CS Core', 'Technical', 'Soft Skills', 'Aptitude'];
 
-  const filteredCourses = filter === 'All' 
-    ? MOCK_COURSES 
-    : MOCK_COURSES.filter(c => c.category === filter);
+  // 3. UPDATED FILTER LOGIC (Combines Category + Search)
+  const filteredCourses = MOCK_COURSES.filter(course => {
+    const matchesCategory = filter === 'All' || course.category === filter;
+    
+    const term = searchTerm.toLowerCase();
+    const matchesSearch = !term || 
+      course.title.toLowerCase().includes(term) ||
+      course.skills.some(skill => skill.toLowerCase().includes(term));
 
-  // --- UPDATED SAVE LOGIC (Hybrid: LocalStorage + Supabase) ---
+    return matchesCategory && matchesSearch;
+  });
+
   const saveSearchHistory = async (query: string) => {
     const timestamp = new Date().toISOString();
 
-    // 1. Save to LocalStorage (Guaranteed to work for Guests)
     try {
       const localHistory = JSON.parse(localStorage.getItem('search_history') || '[]');
       const newEntry = { search_query: query, created_at: timestamp };
-      // Keep only last 10 items
       const updatedHistory = [newEntry, ...localHistory].slice(0, 10);
       localStorage.setItem('search_history', JSON.stringify(updatedHistory));
     } catch (e) {
       console.error("Local storage error", e);
     }
 
-    // 2. Try Supabase (If authenticated)
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
@@ -89,7 +99,7 @@ const CourseView: React.FC<CourseViewProps> = ({ onNavigate }) => {
         });
       }
     } catch (e) {
-      console.warn("Supabase save failed (likely guest mode):", e);
+      console.warn("Supabase save failed:", e);
     }
   };
 
@@ -104,12 +114,8 @@ const CourseView: React.FC<CourseViewProps> = ({ onNavigate }) => {
     setRecoveryPath(null);
 
     try {
-      // 1. Get Course Recommendations
       const recsPromise = recommendCourses(aiGoal, MOCK_COURSES);
-      
-      // 2. Get Custom Recovery Path
       const pathPromise = getRecoveryPath(aiGoal);
-
       const [recs, pathData] = await Promise.all([recsPromise, pathPromise]);
       
       setRecommendations(recs);
@@ -225,6 +231,19 @@ const CourseView: React.FC<CourseViewProps> = ({ onNavigate }) => {
 
       <div className="max-w-7xl mx-auto px-6 md:px-12 -mt-20">
         
+        {/* === SEARCH FILTER INDICATOR === */}
+        {searchTerm && (
+          <div className="mb-8 animate-slide-up flex items-center gap-4">
+             <div className="bg-black text-white px-6 py-3 rounded-full flex items-center gap-3 shadow-xl">
+               <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Filtering by:</span>
+               <span className="font-bold text-[#E91E63]">"{searchTerm}"</span>
+               <button onClick={() => setSearchTerm('')} className="hover:text-red-400 transition-colors ml-2">
+                 <X size={14} />
+               </button>
+             </div>
+          </div>
+        )}
+
         {/* === RECOVERY PATH SECTION === */}
         {recoveryPath && (
           <div className="mb-20 animate-slide-up">
@@ -377,25 +396,51 @@ const CourseView: React.FC<CourseViewProps> = ({ onNavigate }) => {
 
         {/* Standard Catalog Grid */}
         {recommendations.length === 0 && !recoveryPath && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
-            {filteredCourses.map((course, i) => (
-              <div 
-                key={course.id}
-                onClick={() => onNavigate('course-player', course)}
-                className="group cursor-pointer space-y-6 animate-slide-up opacity-0 relative transition-all duration-500 p-4 rounded-[52px]"
-                style={{ animationDelay: `${(i % 3) * 0.1}s` }}
-              >
-                <div className="h-80 rounded-[48px] overflow-hidden relative shadow-lg bg-gray-100">
-                  <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
-                  <div className="absolute top-6 left-6">
-                    <span className="bg-white/90 backdrop-blur px-4 py-1.5 rounded-full text-[10px] font-bold text-gray-400 uppercase shadow-sm">
-                      {course.category}
-                    </span>
+          <div>
+            {/* Category Filters */}
+            <div className="flex flex-wrap gap-4 mb-12">
+               {categories.map((cat) => (
+                 <button
+                   key={cat}
+                   onClick={() => setFilter(cat)}
+                   className={`px-6 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${
+                     filter === cat 
+                       ? 'bg-black text-white shadow-lg' 
+                       : 'bg-white border border-gray-200 text-gray-400 hover:border-gray-400'
+                   }`}
+                 >
+                   {cat}
+                 </button>
+               ))}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
+              {filteredCourses.length > 0 ? (
+                filteredCourses.map((course, i) => (
+                  <div 
+                    key={course.id}
+                    onClick={() => onNavigate('course-player', course)}
+                    className="group cursor-pointer space-y-6 animate-slide-up opacity-0 relative transition-all duration-500 p-4 rounded-[52px]"
+                    style={{ animationDelay: `${(i % 3) * 0.1}s` }}
+                  >
+                    <div className="h-80 rounded-[48px] overflow-hidden relative shadow-lg bg-gray-100">
+                      <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
+                      <div className="absolute top-6 left-6">
+                        <span className="bg-white/90 backdrop-blur px-4 py-1.5 rounded-full text-[10px] font-bold text-gray-400 uppercase shadow-sm">
+                          {course.category}
+                        </span>
+                      </div>
+                    </div>
+                    <h3 className="text-2xl font-medium tracking-tight group-hover:text-[#E91E63] transition-colors">{course.title}</h3>
                   </div>
+                ))
+              ) : (
+                <div className="col-span-full text-center py-20">
+                  <p className="text-gray-400 text-sm">No courses found matching "{searchTerm}"</p>
+                  <button onClick={() => setSearchTerm('')} className="mt-4 text-[#E91E63] font-bold uppercase text-xs">Clear Search</button>
                 </div>
-                <h3 className="text-2xl font-medium tracking-tight group-hover:text-[#E91E63] transition-colors">{course.title}</h3>
-              </div>
-            ))}
+              )}
+            </div>
           </div>
         )}
       </div>
