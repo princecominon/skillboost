@@ -1,7 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Lock, Eye, EyeOff, ArrowLeft, User, BookOpen, GraduationCap, CheckCircle2, Apple, Search, X } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowLeft, User, BookOpen, GraduationCap, CheckCircle2, Apple, Search, X, CheckSquare, Square } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { UserProfile } from '../types';
+
+// ------------------------------------------------------------------
+// 🛑 FIX: Defining the interface LOCALLY to prevent external file errors
+// ------------------------------------------------------------------
+export interface UserProfile {
+  name: string;
+  email?: string;          // ✅ Defined here, so no more error!
+  major: string;
+  year: string | number;
+  dailyGoalMinutes: number;
+  completedMinutesToday: number;
+  currentRank: number;
+  skills: string[];
+  xp: number;
+  streakDays: number;
+  totalModules: number;
+  certificates?: number;
+}
 
 interface AuthFlowProps {
   onLogin: (userData?: UserProfile) => void;
@@ -22,19 +39,16 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
   const [fullName, setFullName] = useState('');
   const [major, setMajor] = useState('');
   const [year, setYear] = useState('1');
+  
+  const [rememberMe, setRememberMe] = useState(false);
 
   // --- AUTOMATIC RESET LOGIC ---
   useEffect(() => {
-    // This function runs whenever the user comes back to the tab
     const handleReturn = () => {
       setLoadingSocial(null);
     };
-
-    // Listen for when the window becomes visible or focused again
     window.addEventListener('focus', handleReturn);
     document.addEventListener('visibilitychange', handleReturn);
-
-    // Cleanup listeners
     return () => {
       window.removeEventListener('focus', handleReturn);
       document.removeEventListener('visibilitychange', handleReturn);
@@ -52,17 +66,21 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
       return;
     }
     setLoading(true);
-    
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
 
-    if (error) {
-      alert(error.message);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        throw error;
+      } else {
+        triggerSuccessAnimation(data.user);
+      }
+    } catch (error: any) {
+      alert(error.message || "Error logging in");
       setLoading(false);
-    } else {
-      triggerSuccessAnimation(data.user);
     }
   };
 
@@ -94,47 +112,34 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
     }
   };
 
-  // --- 3. HANDLE SOCIAL LOGIN (With ADMIN Bypass) ---
+  // --- 3. HANDLE SOCIAL LOGIN ---
   const handleSocialLogin = async (provider: 'google' | 'apple') => {
-    
-    // === APPLE ID BYPASS LOGIC ===
     if (provider === 'apple') {
       const inputPass = prompt("Enter Admin Password for Apple Access:");
-      
       if (inputPass === "SKILL_boost_1") {
         setLoadingSocial('apple');
-        
-        // Simulate a network delay, then log in as ADMIN
         setTimeout(() => {
-           // Create a fake "user" object that looks like Supabase data
            const fakeAdminUser = {
              user_metadata: {
                full_name: "ADMIN", 
                major: "Administration",
-               year: "Staff"
+               year: 0 
              },
              email: "admin@skillboost.com"
            };
-           
            triggerSuccessAnimation(fakeAdminUser);
            setLoadingSocial(null);
         }, 1500);
       } else {
-        if (inputPass !== null) { 
-             alert("Access Denied: Wrong Password.");
-        }
+        if (inputPass !== null) alert("Access Denied: Wrong Password.");
       }
       return;
     }
     
-    // === GOOGLE LOGIC (Standard) ===
     setLoadingSocial(provider);
-    
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: window.location.origin 
-      }
+      options: { redirectTo: window.location.origin }
     });
     
     if (error) {
@@ -149,24 +154,44 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
     setLoading(false);
     
     const meta = user?.user_metadata || {};
-    // Fallback logic for name
     const name = meta.full_name || user?.email?.split('@')[0] || "Learner";
 
     const finalUserData: UserProfile = {
       name: name,
+      email: user?.email, // ✅ Now valid because we defined it at the top
       major: meta.major || "Undecided",
-      year: parseInt(meta.year) || 1,
+      year: meta.year || 1, 
       dailyGoalMinutes: 60,
       completedMinutesToday: 0,
-      currentRank: 500,
-      skills: [],
+      streakDays: 0,
       xp: 0,
+      currentRank: 1,
+      skills: [],
       totalModules: 0,
+      certificates: 0     
     };
 
     setTimeout(() => {
       onLogin(finalUserData);
     }, 2000);
+  };
+
+  const handleGuestLogin = () => {
+    const guestUser: UserProfile = {
+      name: 'Guest User',
+      email: 'guest@skillboost.app', // ✅ Now valid
+      major: 'Undecided',
+      year: 1,
+      dailyGoalMinutes: 30,
+      completedMinutesToday: 0,
+      streakDays: 0,
+      xp: 0,
+      currentRank: 1,
+      skills: [],
+      totalModules: 0,
+      certificates: 0
+    };
+    onLogin(guestUser);
   };
 
   // --- RENDERERS ---
@@ -220,23 +245,24 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
         </div>
 
         <div className="flex items-center justify-between text-xs pt-2">
-          <label className="flex items-center space-x-2 text-gray-500 cursor-pointer select-none">
-            <input type="checkbox" className="w-4 h-4 rounded border-gray-800 bg-[#121212] checked:bg-[#E91E63]" />
-            <span>Remember me</span>
-          </label>
-          <button 
-            onClick={() => setState('forgotPassword')}
-            className="text-gray-500 hover:text-[#E91E63] transition-colors"
+          <button
+            type="button"
+            onClick={() => setRememberMe(!rememberMe)}
+            className="flex items-center gap-2 group"
           >
-            Forgot Password?
+            {rememberMe ? (
+              <CheckSquare size={16} className="text-[#E91E63]" />
+            ) : (
+              <Square size={16} className="text-gray-500 group-hover:text-gray-300" />
+            )}
+            <span className={`font-bold transition-colors ${rememberMe ? 'text-white' : 'text-gray-500 group-hover:text-gray-300'}`}>
+              Remember me
+            </span>
           </button>
+          <button onClick={() => setState('forgotPassword')} className="text-gray-500 hover:text-[#E91E63] transition-colors">Forgot Password?</button>
         </div>
 
-        <button 
-          onClick={handleLogin}
-          disabled={loading}
-          className="w-full py-4 bg-white text-black font-bold rounded-2xl hover:bg-gray-100 transition-all shadow-lg active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-        >
+        <button onClick={handleLogin} disabled={loading} className="w-full py-4 bg-white text-black font-bold rounded-2xl hover:bg-gray-100 transition-all shadow-lg active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed">
           {loading ? "Verifying..." : "Log In"}
         </button>
 
@@ -248,19 +274,11 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <button 
-            disabled={!!loadingSocial}
-            onClick={() => handleSocialLogin('google')}
-            className={`flex items-center justify-center space-x-2 py-3.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all active:scale-95 ${loadingSocial === 'google' ? 'opacity-50' : ''}`}
-          >
+          <button disabled={!!loadingSocial} onClick={() => handleSocialLogin('google')} className={`flex items-center justify-center space-x-2 py-3.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all active:scale-95 ${loadingSocial === 'google' ? 'opacity-50' : ''}`}>
             <Search size={18} className="text-red-500" />
             <span className="text-xs font-bold text-black">Google</span>
           </button>
-          <button 
-            disabled={!!loadingSocial}
-            onClick={() => handleSocialLogin('apple')}
-            className={`flex items-center justify-center space-x-2 py-3.5 bg-black border border-gray-800 rounded-xl hover:bg-zinc-900 transition-all active:scale-95 ${loadingSocial === 'apple' ? 'opacity-50' : ''}`}
-          >
+          <button disabled={!!loadingSocial} onClick={() => handleSocialLogin('apple')} className={`flex items-center justify-center space-x-2 py-3.5 bg-black border border-gray-800 rounded-xl hover:bg-zinc-900 transition-all active:scale-95 ${loadingSocial === 'apple' ? 'opacity-50' : ''}`}>
             <Apple size={18} className="text-white" />
             <span className="text-xs font-bold text-white">Apple ID</span>
           </button>
@@ -276,10 +294,7 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
   const renderSignup = () => (
     <div className="flex flex-col w-full animate-in fade-in slide-in-from-right-4 duration-500">
       <div className="flex items-center justify-between mb-12">
-        <button 
-          onClick={() => setState('login')}
-          className="w-10 h-10 bg-gray-900/50 rounded-full border border-gray-800 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
-        >
+        <button onClick={() => setState('login')} className="w-10 h-10 bg-gray-900/50 rounded-full border border-gray-800 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
           <ArrowLeft size={18} />
         </button>
         <div className="flex items-center space-x-2">
@@ -296,13 +311,7 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
           <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Full Name</label>
           <div className="relative">
             <User size={18} className={iconClasses} />
-            <input 
-              type="text" 
-              placeholder="e.g. Alex Rivera" 
-              className={inputClasses} 
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-            />
+            <input type="text" placeholder="e.g. Alex Rivera" className={inputClasses} value={fullName} onChange={(e) => setFullName(e.target.value)} />
           </div>
         </div>
 
@@ -311,24 +320,14 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
             <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Major</label>
             <div className="relative">
               <BookOpen size={18} className={iconClasses} />
-              <input 
-                type="text" 
-                placeholder="e.g. CS" 
-                className={inputClasses} 
-                value={major}
-                onChange={(e) => setMajor(e.target.value)}
-              />
+              <input type="text" placeholder="e.g. CS" className={inputClasses} value={major} onChange={(e) => setMajor(e.target.value)} />
             </div>
           </div>
           <div className="space-y-2">
             <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Year</label>
             <div className="relative">
               <GraduationCap size={18} className={iconClasses} />
-              <select 
-                className={`${inputClasses} appearance-none`}
-                value={year}
-                onChange={(e) => setYear(e.target.value)}
-              >
+              <select className={`${inputClasses} appearance-none`} value={year} onChange={(e) => setYear(e.target.value)}>
                 <option value="1">1st Year</option>
                 <option value="2">2nd Year</option>
                 <option value="3">3rd Year</option>
@@ -342,13 +341,7 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
           <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Email</label>
           <div className="relative">
             <Mail size={18} className={iconClasses} />
-            <input 
-              type="email" 
-              placeholder="Enter your email" 
-              className={inputClasses} 
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
+            <input type="email" placeholder="Enter your email" className={inputClasses} value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
         </div>
 
@@ -356,24 +349,12 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
           <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Password</label>
           <div className="relative">
             <Lock size={18} className={iconClasses} />
-            <input 
-              type={showPassword ? "text" : "password"} 
-              placeholder="Create a password" 
-              className={inputClasses} 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <div onClick={() => setShowPassword(!showPassword)} className={toggleClasses}>
-              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-            </div>
+            <input type="password" placeholder="Create a password" className={inputClasses} value={password} onChange={(e) => setPassword(e.target.value)} />
+            <div onClick={() => setShowPassword(!showPassword)} className={toggleClasses}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</div>
           </div>
         </div>
 
-        <button 
-          onClick={handleSignup}
-          disabled={loading}
-          className="w-full py-4 bg-[#E91E63] text-white font-bold rounded-2xl hover:opacity-90 transition-all shadow-lg mt-4 active:scale-[0.98] disabled:opacity-50"
-        >
+        <button onClick={handleSignup} disabled={loading} className="w-full py-4 bg-[#E91E63] text-white font-bold rounded-2xl hover:opacity-90 transition-all shadow-lg mt-4 active:scale-[0.98] disabled:opacity-50">
           {loading ? "Creating Account..." : "Create Account"}
         </button>
 
@@ -387,10 +368,7 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
   const renderForgot = () => (
     <div className="flex flex-col w-full animate-in fade-in slide-in-from-top-4 duration-500">
       <div className="flex items-center justify-between mb-12">
-        <button 
-          onClick={() => setState('login')}
-          className="w-10 h-10 bg-gray-900/50 rounded-full border border-gray-800 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
-        >
+        <button onClick={() => setState('login')} className="w-10 h-10 bg-gray-900/50 rounded-full border border-gray-800 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
           <ArrowLeft size={18} />
         </button>
         <div className="flex items-center space-x-2">
@@ -407,20 +385,10 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
           <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Email</label>
           <div className="relative">
             <Mail size={18} className={iconClasses} />
-            <input 
-              type="email" 
-              placeholder="Enter your email" 
-              className={inputClasses} 
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
+            <input type="email" placeholder="Enter your email" className={inputClasses} value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
         </div>
-
-        <button 
-          onClick={() => alert("Check your email for reset instructions.")}
-          className="w-full py-4 bg-[#E91E63] text-white font-bold rounded-2xl hover:opacity-90 transition-all shadow-lg active:scale-[0.98]"
-        >
+        <button onClick={() => alert("Check your email for reset instructions.")} className="w-full py-4 bg-[#E91E63] text-white font-bold rounded-2xl hover:opacity-90 transition-all shadow-lg active:scale-[0.98]">
           Send Code
         </button>
       </div>
@@ -429,7 +397,6 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
 
   return (
     <div className="min-h-screen w-full bg-black flex items-center justify-center px-6 md:px-0 relative overflow-hidden">
-      {/* Success Popup Bar */}
       {isSuccessPopupVisible && (
         <div className="fixed top-8 left-0 right-0 z-[200] flex justify-center px-6 animate-slide-up">
           <div className="bg-white/10 backdrop-blur-3xl border border-white/20 shadow-2xl py-4 px-6 rounded-[30px] flex items-center gap-4 max-w-md w-full">
@@ -444,7 +411,6 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
         </div>
       )}
 
-      {/* Social Loading Overlay - Auto Reset */}
       {loadingSocial && (
         <div className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-sm flex items-center justify-center animate-fade-in">
           <div className="text-center relative bg-black/50 p-8 rounded-[40px] border border-white/10">

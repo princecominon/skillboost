@@ -2,15 +2,36 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { supabase } from '../lib/supabase';
 
-// Initialize the API Client
-const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
+// ==========================================
+// 1. INITIALIZE SINGLE API CLIENT
+// ==========================================
 
-// STRICT REQUEST: Using gemini-3-flash-preview
-// Note: If 'gemini-3-flash-preview' is not available to your key yet, fallback to 'gemini-1.5-flash'
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); 
+const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
+
+if (!API_KEY) {
+  console.error("⚠️ Missing VITE_GOOGLE_API_KEY in .env file");
+}
+
+const genAI = new GoogleGenerativeAI(API_KEY);
+
+
+const generateSmartContent = async (prompt: string) => {
+  try {
+    // Attempt 1: Advanced Model
+    const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+    return await model.generateContent(prompt);
+  } catch (error: any) {
+    console.warn("⚠️ Primary model failed. Switching to fallback (gemini-1.5-flash).");
+    
+    // Attempt 2: Fallback Model (Standard)
+    // This prevents the app from breaking if you hit the rate limit.
+    const fallbackModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    return await fallbackModel.generateContent(prompt);
+  }
+};
 
 // ==========================================
-// 1. QUIZ & LEADERBOARD FUNCTIONS
+// 2. QUIZ & GAMIFICATION
 // ==========================================
 
 export const generateTopicQuiz = async (topic: string) => {
@@ -27,7 +48,7 @@ export const generateTopicQuiz = async (topic: string) => {
       ]
     `;
 
-    const result = await model.generateContent(prompt);
+    const result = await generateSmartContent(prompt);
     const text = result.response.text();
     const cleanText = text.replace(/```json|```/g, '').trim();
     return JSON.parse(cleanText);
@@ -39,7 +60,6 @@ export const generateTopicQuiz = async (topic: string) => {
 
 export const saveQuizResult = async (username: string, topic: string, score: number, total: number) => {
   console.log("Saving quiz for:", username);
-  // Ensure you have a 'quizzes' table in Supabase
   const { error } = await supabase
     .from('quizzes')
     .insert([{ 
@@ -79,7 +99,7 @@ export const getLeaderboard = async () => {
 };
 
 // ==========================================
-// 2. DASHBOARD FUNCTIONS
+// 3. VIDEO & ANALYSIS
 // ==========================================
 
 export const getYouTubeID = (url: string) => {
@@ -98,18 +118,17 @@ export const analyzeLectureVideo = async (url: string) => {
       - summary: A 2-sentence summary suitable for a CTO
       - recoveryPoints: An array of 3 bullet points on practical application
       - concepts: An array of 3 academic concepts covered
-      
       Return JSON only.
     `;
-    const result = await model.generateContent(prompt);
+    
+    const result = await generateSmartContent(prompt);
     const text = result.response.text().replace(/```json|```/g, '').trim();
     return JSON.parse(text);
   } catch (error) {
-    console.error("Video Analysis Error:", error);
     return {
       industrialTitle: "Lecture Analysis Unavailable",
       summary: "Could not analyze video content at this time.",
-      recoveryPoints: ["Check internet connection", "Verify video URL", "Try again later"],
+      recoveryPoints: [],
       concepts: ["N/A"]
     };
   }
@@ -118,7 +137,8 @@ export const analyzeLectureVideo = async (url: string) => {
 export const findRecoveryVideos = async (skill: string) => {
   try {
     const prompt = `Suggest a specific, real high-quality YouTube video title and search query for learning "${skill}". Return JSON: { title, rationale }`;
-    const result = await model.generateContent(prompt);
+    
+    const result = await generateSmartContent(prompt);
     const data = JSON.parse(result.response.text().replace(/```json|```/g, '').trim());
     
     return {
@@ -140,22 +160,48 @@ export const recommendCourses = async (goal: string, courses: any[]) => {
       Courses: ${JSON.stringify(catalogBrief)}
       Select the best courses for this goal. Return a JSON array of objects: [{ "id": "...", "reason": "..." }]
     `;
-    const result = await model.generateContent(prompt);
+
+    const result = await generateSmartContent(prompt);
     return JSON.parse(result.response.text().replace(/```json|```/g, '').trim());
   } catch (e) {
     return [];
   }
 };
 
-export const getRecoveryPath = async (concept: string) => {
+// ==========================================
+// 4. RECOVERY PATH (Action Plan)
+// ==========================================
+
+export const getRecoveryPath = async (goal: string) => {
   try {
     const prompt = `
-      Generate a 3-step recovery path for "${concept}".
-      Return JSON: { "concept": "${concept}", "steps": [{ "title": "...", "description": "...", "resourceType": "video" }] }
+      Create a concrete 4-step recovery path to master this goal: "${goal}".
+      For each step, provide:
+      1. A short action title.
+      2. A concise explanation.
+      3. A specific YouTube search query to find the best tutorial for this step.
+      
+      Return JSON only: 
+      { 
+        "goal": "${goal}", 
+        "steps": [
+          { "title": "Step Title", "description": "Step Description", "searchQuery": "YouTube Search Query" }
+        ] 
+      }
     `;
-    const result = await model.generateContent(prompt);
-    return JSON.parse(result.response.text().replace(/```json|```/g, '').trim());
+
+    const result = await generateSmartContent(prompt);
+    const data = JSON.parse(result.response.text().replace(/```json|```/g, '').trim());
+    
+    // Add constructed YouTube links
+    const stepsWithLinks = data.steps.map((step: any) => ({
+      ...step,
+      youtubeLink: `https://www.youtube.com/results?search_query=${encodeURIComponent(step.searchQuery)}`
+    }));
+
+    return { ...data, steps: stepsWithLinks };
   } catch (e) {
+    console.error("Recovery Path Error:", e);
     return null;
   }
 };
@@ -166,7 +212,8 @@ export const getCareerAssessment = async (skills: string[], major: string) => {
       Assess a ${major} student with skills: ${skills.join(', ')}.
       Write 3 short paragraphs: 1. Top Roles, 2. Missing Skills, 3. Motivational Summary.
     `;
-    const result = await model.generateContent(prompt);
+
+    const result = await generateSmartContent(prompt);
     return result.response.text();
   } catch (e) {
     return "Assessment unavailable.";

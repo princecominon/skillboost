@@ -56,7 +56,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           </div>
           
           <h1 className="text-6xl md:text-9xl font-medium text-white tracking-tighter leading-[0.85] animate-slide-up opacity-0 stagger-1">
-            Industrialize your <br /> <span className="italic font-light text-[#E91E63]">Lecture Gaps</span>
+            Utilize your <br /> <span className="italic font-light text-[#E91E63]">Lecture Gaps</span>
           </h1>
           
           <p className="text-white/50 text-base md:text-xl max-w-2xl mx-auto font-light leading-relaxed animate-slide-up opacity-0 stagger-2">

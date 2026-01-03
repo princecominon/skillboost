@@ -1,12 +1,12 @@
-
 import React, { useState } from 'react';
 import { MOCK_TUTORIALS } from '../constants';
 import { TutorialVideo } from '../types';
-import { Play, Clock, User, Tag, Calendar, ChevronRight, Layout, Video, Share2, MoreHorizontal } from 'lucide-react';
+import { Play, Clock, User, Tag, Calendar, ChevronRight, Layout, Video, Share2, MoreHorizontal, X } from 'lucide-react';
 
 const Tutorials: React.FC = () => {
   const [selectedVideo, setSelectedVideo] = useState<TutorialVideo | null>(MOCK_TUTORIALS[0]);
   const [activeCategory, setActiveCategory] = useState('All');
+  const [showPopup, setShowPopup] = useState(false); // ✅ ADDED ONLY
 
   const categories = ['All', ...new Set(MOCK_TUTORIALS.map(v => v.category))];
 
@@ -142,7 +142,6 @@ const Tutorials: React.FC = () => {
           </div>
         ))}
 
-        {/* Upload Placeholder for the Host */}
         <div className="border-2 border-dashed border-gray-100 rounded-[40px] flex flex-col items-center justify-center p-8 space-y-4 hover:border-[#E91E63] hover:bg-gray-50 transition-all cursor-pointer group">
           <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center text-gray-200 group-hover:text-[#E91E63] group-hover:bg-[#E91E63]/5 transition-all">
             <Video size={28} />
@@ -157,30 +156,51 @@ const Tutorials: React.FC = () => {
       {/* Info Section */}
       <div className="bg-[#1A0616] p-12 md:p-20 rounded-[60px] text-white flex flex-col lg:flex-row items-center gap-16 relative overflow-hidden">
         <div className="space-y-6 relative z-10 flex-1">
-          <h3 className="text-4xl md:text-5xl font-medium tracking-tighter leading-none">The <span className="text-[#E91E63]">Vault</span> Protocols</h3>
+          <h3 className="text-4xl md:text-5xl font-medium tracking-tighter leading-none">
+            The <span className="text-[#E91E63]">Vault</span> Protocols
+          </h3>
           <p className="text-white/40 text-lg font-light leading-relaxed max-w-lg">
             These tutorials are non-academic, industrial deep-dives. They focus on scalability, production-readiness, and professional standards.
           </p>
-          <div className="flex items-center space-x-6 pt-4">
-             <div className="flex items-center space-x-2">
-                <Calendar size={18} className="text-[#E91E63]" />
-                <span className="text-[10px] font-black uppercase tracking-widest">Updates Weekly</span>
-             </div>
-             <div className="flex items-center space-x-2">
-                <Tag size={18} className="text-[#E91E63]" />
-                <span className="text-[10px] font-black uppercase tracking-widest">Pro Only</span>
-             </div>
-          </div>
         </div>
+
         <div className="flex-shrink-0 relative z-10">
-          <button className="bg-white text-black px-12 py-5 rounded-[24px] text-[11px] font-black uppercase tracking-[0.3em] hover:scale-105 transition-transform flex items-center space-x-4">
+          {/* 🔴 ONLY CHANGE: onClick */}
+          <button
+            onClick={() => setShowPopup(true)}
+            className="bg-white text-black px-12 py-5 rounded-[24px] text-[11px] font-black uppercase tracking-[0.3em] hover:scale-105 transition-transform flex items-center space-x-4"
+          >
             <span>Unlock Premium Tutorials</span>
             <ChevronRight size={18} />
           </button>
         </div>
-        {/* Background glow */}
+
         <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-[#E91E63]/20 blur-[100px] pointer-events-none"></div>
       </div>
+
+      {/* ✅ POPUP — ADD ONLY */}
+      {showPopup && (
+        <div
+          className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center px-6"
+          onClick={() => setShowPopup(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-[40px] p-10 max-w-md w-full relative shadow-2xl"
+          >
+            <button
+              onClick={() => setShowPopup(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-black"
+            >
+              <X size={20} />
+            </button>
+
+            <p className="text-sm text-gray-700 leading-relaxed">
+              work is in progress for more details contact :- prince.com.in.on@gmail.com
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

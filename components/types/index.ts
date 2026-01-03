@@ -1,15 +1,16 @@
 export interface UserProfile {
   name: string;
-  email?: string;          // <--- 1. This fixes the AuthFlow error
+  email?: string;          // Added to fix AuthFlow error
   major: string;
-  year: string | number;   // <--- 2. Allows both "1" (string) and 1 (number) to prevent type conflicts
+  year: string | number;   // Flexible type (accepts "1" or 1)
   dailyGoalMinutes: number;
   completedMinutesToday: number;
   currentRank: number;
   skills: string[];
   xp: number;
+  streakDays: number;
   totalModules: number;
-  certificates?: number;   // <--- 3. This fixes potential errors in the Profile component
+  certificates?: number;   // Optional field
 }
 
 export interface Course {
