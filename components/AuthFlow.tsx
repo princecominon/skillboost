@@ -116,7 +116,7 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
   const handleSocialLogin = async (provider: 'google' | 'apple') => {
     if (provider === 'apple') {
       const inputPass = prompt("Enter Admin Password for Apple Access:");
-      if (inputPass === "SKILL_boost_1") {
+      if (inputPass === "SKILL_BOOST_1") {
         setLoadingSocial('apple');
         setTimeout(() => {
            const fakeAdminUser = {
