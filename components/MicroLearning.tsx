@@ -2,8 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Trophy, CheckCircle2, Search, RefreshCw, ArrowRight, Sparkles, User, X } from 'lucide-react';
 import { LEADERBOARD } from '../constants';
 import { generateTopicQuiz, saveQuizResult, getLeaderboard } from '../services/geminiService';
+import { UserProfile } from '../types'; // Import the type
 
-// Note: AuthFlow and Supabase imports removed as they are no longer needed
+// 1. Define Props to accept user data
+interface MicroLearningProps {
+  user: UserProfile | null;
+}
 
 interface QuizQuestion {
   question: string;
@@ -11,17 +15,10 @@ interface QuizQuestion {
   correctAnswer: number;
 }
 
-const MicroLearning: React.FC = () => {
-  // --- MOCK AUTH STATE (No Login Required) ---
-  // We initialize the user immediately with a default profile
-  const [user, setUser] = useState<any>({
-    user_metadata: {
-      full_name: "Future Engineer", // Default Profile Name
-      major: "General",
-      year: "1"
-    },
-    email: "guest@skillboost.app"
-  });
+// 2. Destructure 'user' from props
+const MicroLearning: React.FC<MicroLearningProps> = ({ user }) => {
+  // --- REMOVED MOCK USER STATE ---
+  // We now use the 'user' prop passed from App.tsx
 
   const [topic, setTopic] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -42,14 +39,15 @@ const MicroLearning: React.FC = () => {
   // 2. AUTO-SAVE RESULT
   useEffect(() => {
     if (showResults && quizQuestions.length > 0 && user) {
-      const displayName = user.user_metadata.full_name;
+      // 3. Use real user name for saving
+      const displayName = user.name || "Anonymous Learner";
       saveQuizResult(displayName, topic, score, quizQuestions.length);
       
       setTimeout(() => {
         getLeaderboard().then(data => setLeaderboardData(data));
       }, 1000);
     }
-  }, [showResults, user]);
+  }, [showResults, user, quizQuestions.length, score, topic]);
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,7 +63,7 @@ const MicroLearning: React.FC = () => {
       setCurrentStep(0);
       setScore(0);
       setShowResults(false);
-    } else {
+        } else {
       alert("Failed to synthesize quiz. Please try a different topic.");
     }
     setIsGenerating(false);
@@ -90,9 +88,6 @@ const MicroLearning: React.FC = () => {
     setQuizQuestions([]);
   };
 
-  // --- RENDER ---
-  // No loading check or auth check needed. Direct render of Dashboard.
-
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in duration-500">
       <div className="lg:col-span-2 space-y-6">
@@ -103,8 +98,8 @@ const MicroLearning: React.FC = () => {
             </div>
             <div>
               <h2 className="text-3xl font-black text-gray-900 tracking-tight">Quiz Complete!</h2>
-              {/* Uses Default Profile Name */}
-              <p className="text-gray-400 mt-2 font-medium">Player: <span className="text-black font-bold">{user.user_metadata.full_name}</span></p>
+              {/* 4. Use real user name */}
+              <p className="text-gray-400 mt-2 font-medium">Player: <span className="text-black font-bold">{user?.name || "Learner"}</span></p>
             </div>
             
             <div className="flex justify-center space-x-12">
@@ -182,7 +177,6 @@ const MicroLearning: React.FC = () => {
                     <Sparkles size={24} className="text-[#E91E63] animate-pulse" />
                     <span className="text-[10px] font-black tracking-[0.4em] uppercase text-[#E91E63]">Synthesis Engine v2.5</span>
                  </div>
-                 {/* Static User Badge */}
                  <div className="flex items-center gap-2 px-4 py-2 bg-white/10 rounded-full">
                     <User size={14} className="text-[#E91E63]" />
                     <span className="text-xs font-bold uppercase tracking-wider text-white">Student Access</span>
@@ -190,7 +184,11 @@ const MicroLearning: React.FC = () => {
               </div>
               
               <h2 className="text-5xl md:text-7xl font-medium mb-6 tracking-tighter leading-[0.9]">
-                Welcome, <br /> <span className="italic font-light text-[#E91E63]">{user.user_metadata.full_name}</span>
+                Welcome, <br /> 
+                {/* 5. Replaced static text with dynamic name */}
+                <span className="italic font-light text-[#E91E63]">
+                  {user?.name || 'Future Engineer'}
+                </span>
               </h2>
               
               <p className="text-white/40 text-lg mb-12 max-w-md font-light leading-relaxed">

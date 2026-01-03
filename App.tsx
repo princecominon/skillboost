@@ -31,7 +31,7 @@ const App: React.FC = () => {
         const meta = session.user.user_metadata;
         const mappedUser: UserProfile = {
           name: meta.full_name || session.user.email?.split('@')[0] || 'Learner',
-          // email: session.user.email, <--- REMOVED TO FIX ERROR
+          // email: session.user.email,
           major: meta.major || '',
           year: meta.year || '',
           dailyGoalMinutes: 60,
@@ -39,7 +39,7 @@ const App: React.FC = () => {
           currentRank: 500,
           skills: [],
           xp: 0,
-          // streakDays: 0, <--- REMOVED TO FIX ERROR
+          // streakDays: 0,
           totalModules: 0,
           certificates: 0
         };
@@ -126,7 +126,8 @@ const App: React.FC = () => {
         ) : null;
 
       case 'quizzes':
-        return <MicroLearning />;
+        // ✅ UPDATED: Passing user prop here
+        return <MicroLearning user={user} />;
 
       case 'mentors':
         return <Mentorship />;
