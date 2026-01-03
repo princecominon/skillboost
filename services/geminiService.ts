@@ -30,9 +30,6 @@ const generateSmartContent = async (prompt: string) => {
   }
 };
 
-// ==========================================
-// 2. QUIZ & GAMIFICATION
-// ==========================================
 
 export const generateTopicQuiz = async (topic: string) => {
   try {
