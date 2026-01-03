@@ -209,7 +209,7 @@ const AuthFlow: React.FC<AuthFlowProps> = ({ onLogin }) => {
         </div>
       </div>
 
-      <h2 className="text-3xl font-bold text-white mb-2">Welcome Back</h2>
+      <h2 className="text-3xl font-bold text-white mb-2">Let's Start</h2>
       <p className="text-gray-500 text-sm mb-10">Login to bridge your industry skill gap.</p>
 
       <div className="space-y-6">
