@@ -23,7 +23,7 @@ import { supabase } from '../lib/supabase';
 
 interface CourseViewProps {
   onNavigate: (view: View, course?: Course) => void;
-  initialSearch?: string; // <--- 1. ADDED THIS PROP
+  initialSearch?: string;
 }
 
 interface AIRecommendation {
@@ -45,15 +45,54 @@ interface RecoveryStep {
 }
 
 const CourseView: React.FC<CourseViewProps> = ({ onNavigate, initialSearch = '' }) => {
-  const [filter, setFilter] = useState('All');
+  const [courses, setCourses] = useState<Course[]>(MOCK_COURSES);
+  const [isLoadingDB, setIsLoadingDB] = useState(true);
   
-  // 2. ADDED SEARCH STATE AND EFFECT
+  // Search & Filter State
   const [searchTerm, setSearchTerm] = useState(initialSearch);
+  const [filter, setFilter] = useState('All');
 
+  // Sync prop changes to local state
   useEffect(() => {
     setSearchTerm(initialSearch);
   }, [initialSearch]);
 
+  // FETCH REAL DATA FROM SUPABASE
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const { data, error } = await supabase.from('courses').select('*');
+        
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          // MAP DB DATA TO FRONTEND INTERFACE
+          const mappedCourses: Course[] = data.map((item: any) => ({
+            id: item.id,
+            title: item.title,
+            category: item.category,
+            thumbnail: item.thumbnail,
+            description: item.description,
+            // Check both snake_case (DB) and camelCase
+            videoUrl: item.video_url || item.videoUrl || "", 
+            duration: item.duration,
+            skills: item.skills || [],
+            // ✅ FIX: Added progress property to satisfy TypeScript
+            progress: item.progress || 0
+          }));
+          setCourses(mappedCourses);
+        }
+      } catch (err) {
+        console.error("Using Mock Data due to DB error:", err);
+      } finally {
+        setIsLoadingDB(false);
+      }
+    };
+
+    fetchCourses();
+  }, []);
+
+  // AI State
   const [aiGoal, setAiGoal] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [recommendations, setRecommendations] = useState<AIRecommendation[]>([]);
@@ -63,8 +102,8 @@ const CourseView: React.FC<CourseViewProps> = ({ onNavigate, initialSearch = '' 
 
   const categories = ['All', 'CS Core', 'Technical', 'Soft Skills', 'Aptitude'];
 
-  // 3. UPDATED FILTER LOGIC (Combines Category + Search)
-  const filteredCourses = MOCK_COURSES.filter(course => {
+  // FILTER LOGIC
+  const filteredCourses = courses.filter(course => {
     const matchesCategory = filter === 'All' || course.category === filter;
     
     const term = searchTerm.toLowerCase();
@@ -77,16 +116,16 @@ const CourseView: React.FC<CourseViewProps> = ({ onNavigate, initialSearch = '' 
 
   const saveSearchHistory = async (query: string) => {
     const timestamp = new Date().toISOString();
-
+    
+    // Local Storage Backup
     try {
       const localHistory = JSON.parse(localStorage.getItem('search_history') || '[]');
       const newEntry = { search_query: query, created_at: timestamp };
       const updatedHistory = [newEntry, ...localHistory].slice(0, 10);
       localStorage.setItem('search_history', JSON.stringify(updatedHistory));
-    } catch (e) {
-      console.error("Local storage error", e);
-    }
+    } catch (e) { console.error(e); }
 
+    // Supabase Storage
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
@@ -98,9 +137,7 @@ const CourseView: React.FC<CourseViewProps> = ({ onNavigate, initialSearch = '' 
           created_at: timestamp
         });
       }
-    } catch (e) {
-      console.warn("Supabase save failed:", e);
-    }
+    } catch (e) { console.warn("Supabase save failed:", e); }
   };
 
   const handleAiSearch = async (e: React.FormEvent) => {
@@ -114,7 +151,7 @@ const CourseView: React.FC<CourseViewProps> = ({ onNavigate, initialSearch = '' 
     setRecoveryPath(null);
 
     try {
-      const recsPromise = recommendCourses(aiGoal, MOCK_COURSES);
+      const recsPromise = recommendCourses(aiGoal, courses);
       const pathPromise = getRecoveryPath(aiGoal);
       const [recs, pathData] = await Promise.all([recsPromise, pathPromise]);
       
@@ -162,19 +199,21 @@ const CourseView: React.FC<CourseViewProps> = ({ onNavigate, initialSearch = '' 
       onNavigate('course-player', course);
       return;
     }
+    // Create a virtual course object for the AI video
     const virtualCourse: Course = {
       ...course,
       id: `ai-${video.id}-${Date.now()}`,
       title: `[AI] ${video.title}`,
       description: video.rationale,
       videoUrl: `https://www.youtube.com/embed/${videoId}`,
-      category: 'Technical'
+      category: 'Technical',
+      progress: 0 // Added here as well for consistency
     };
     onNavigate('course-player', virtualCourse);
   };
 
   const recommendedCoursesList = recommendations
-    .map(rec => MOCK_COURSES.find(c => c.id === rec.id))
+    .map(rec => courses.find(c => c.id === rec.id))
     .filter((c): c is Course => !!c);
 
   return (
@@ -415,7 +454,12 @@ const CourseView: React.FC<CourseViewProps> = ({ onNavigate, initialSearch = '' 
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
-              {filteredCourses.length > 0 ? (
+              {isLoadingDB ? (
+                // Loading Skeleton
+                [1,2,3].map(i => (
+                  <div key={i} className="h-80 bg-gray-100 rounded-[52px] animate-pulse" />
+                ))
+              ) : filteredCourses.length > 0 ? (
                 filteredCourses.map((course, i) => (
                   <div 
                     key={course.id}

@@ -1,7 +1,15 @@
-
 import React, { useState } from 'react';
 import { Course } from '../types';
-import { ArrowLeft, CheckCircle2, Circle, MessageSquare, HelpCircle, Sparkles, Youtube, Info } from 'lucide-react';
+import { 
+  ArrowLeft, 
+  CheckCircle2, 
+  MessageSquare, 
+  HelpCircle, 
+  Sparkles, 
+  Youtube, 
+  Info, 
+  PlayCircle 
+} from 'lucide-react';
 
 interface CoursePlayerProps {
   course: Course;
@@ -10,14 +18,34 @@ interface CoursePlayerProps {
 
 const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack }) => {
   const [activeTab, setActiveTab] = useState<'syllabus' | 'quiz' | 'notes'>('syllabus');
-  const isAiSourced = course.id.startsWith('ai-') || course.id.startsWith('industrial-');
+  
+  // Detect if this is an AI-generated recovery path
+  const isAiSourced = course.id.toString().startsWith('ai-') || course.id.toString().startsWith('industrial-');
 
+  // Helper to ensure YouTube links are always embeddable
+  const getEmbedUrl = (url: string) => {
+    if (!url) return '';
+    if (url.includes('embed')) return url;
+    
+    // Convert standard watch links to embed links
+    const videoIdMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/)([^&?]*))/);
+    if (videoIdMatch && videoIdMatch[1]) {
+      return `https://www.youtube.com/embed/${videoIdMatch[1]}`;
+    }
+    return url;
+  };
+
+  const finalVideoUrl = getEmbedUrl(course.videoUrl || '');
+
+  // Dynamic syllabus based on course data
   const syllabusItems = [
     { title: "Foundational Context", duration: "05:00", completed: true },
     { title: "Industrial Bridge Analysis", duration: "12:30", completed: false },
-    { title: "Core Skill Implementation", duration: "Video Length", completed: false },
+    { title: "Core Skill Implementation", duration: course.duration || "15:00", completed: false },
     { title: "Knowledge Gap Assessment", duration: "Quiz", completed: false },
   ];
+
+  const currentProgress = course.progress || 0;
 
   return (
     <div className="min-h-screen bg-[#FDFCFE] animate-in fade-in duration-700">
@@ -34,20 +62,30 @@ const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack }) => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
           {/* Main Content Area */}
           <div className="lg:col-span-8 space-y-8">
-            <div className="aspect-video bg-black rounded-[40px] overflow-hidden shadow-2xl relative">
-              <iframe 
-                width="100%" 
-                height="100%" 
-                src={`${course.videoUrl}?autoplay=1&modestbranding=1&rel=0`} 
-                title={course.title}
-                frameBorder="0" 
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-                allowFullScreen
-              ></iframe>
+            <div className="aspect-video bg-black rounded-[40px] overflow-hidden shadow-2xl relative group">
+              {finalVideoUrl ? (
+                <iframe 
+                  width="100%" 
+                  height="100%" 
+                  src={`${finalVideoUrl}?autoplay=1&modestbranding=1&rel=0`} 
+                  title={course.title}
+                  frameBorder="0" 
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                  allowFullScreen
+                  className="w-full h-full"
+                ></iframe>
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-gray-900 text-white">
+                    <div className="text-center space-y-4">
+                        <PlayCircle size={48} className="mx-auto opacity-50" />
+                        <p className="text-xs font-mono">VIDEO SOURCE UNAVAILABLE</p>
+                    </div>
+                </div>
+              )}
               
               {isAiSourced && (
                 <div className="absolute top-6 left-6">
-                  <div className="bg-red-600/90 backdrop-blur-md px-4 py-2 rounded-full flex items-center space-x-2 text-white text-[9px] font-black tracking-widest uppercase">
+                  <div className="bg-red-600/90 backdrop-blur-md px-4 py-2 rounded-full flex items-center space-x-2 text-white text-[9px] font-black tracking-widest uppercase shadow-lg">
                     <Youtube size={12} />
                     <span>External Discovery</span>
                   </div>
@@ -59,18 +97,31 @@ const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack }) => {
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="space-y-2">
                   <div className="flex items-center space-x-3">
-                    {isAiSourced && <Sparkles size={16} className="text-[#E91E63]" />}
-                    <span className="text-[10px] font-bold text-[#E91E63] uppercase tracking-[0.2em]">Current Recovery Module</span>
+                    {isAiSourced ? (
+                        <>
+                            <Sparkles size={16} className="text-[#E91E63]" />
+                            <span className="text-[10px] font-bold text-[#E91E63] uppercase tracking-[0.2em]">Current Recovery Module</span>
+                        </>
+                    ) : (
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">{course.category} Module</span>
+                    )}
                   </div>
                   <h1 className="text-3xl md:text-4xl font-medium tracking-tight text-gray-900 leading-tight">
                     {course.title}
                   </h1>
                 </div>
-                <div className="flex items-center space-x-2">
+                
+                {/* Linked Progress Bar */}
+                <div className="flex items-center space-x-3">
                    <div className="h-2 w-32 bg-gray-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-[#E91E63] w-1/3"></div>
+                      <div 
+                        className="h-full bg-[#E91E63] transition-all duration-1000" 
+                        style={{ width: `${currentProgress}%` }}
+                      ></div>
                    </div>
-                   <span className="text-[10px] font-bold text-gray-400 uppercase">35%</span>
+                   <span className="text-[10px] font-bold text-gray-400 uppercase min-w-[30px]">
+                     {currentProgress}%
+                   </span>
                 </div>
               </div>
 
@@ -167,7 +218,7 @@ const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack }) => {
                     </div>
                     <textarea 
                       placeholder="Start capturing your industrial notes..."
-                      className="flex-1 w-full bg-gray-50 border-none rounded-2xl p-4 text-xs text-gray-600 focus:ring-1 focus:ring-[#E91E63]/20 resize-none font-light italic"
+                      className="flex-1 w-full bg-gray-50 border-none rounded-2xl p-4 text-xs text-gray-600 focus:ring-1 focus:ring-[#E91E63]/20 resize-none font-light italic focus:outline-none"
                     />
                     <button className="w-full py-4 bg-black text-white rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center space-x-3 hover:bg-[#E91E63] transition-all">
                       <MessageSquare size={14} />

@@ -1,8 +1,7 @@
-
 import React, { useState } from 'react';
 import { MOCK_COURSES } from '../constants';
 import { View, Course } from '../types';
-import { ChevronRight, Play, Zap, Brain, Target, Users, ArrowUpRight, Youtube, Search, Info, RefreshCw } from 'lucide-react';
+import { ChevronRight, Target, Users, ArrowUpRight, Youtube, Search, RefreshCw, Zap, Brain } from 'lucide-react';
 import { analyzeLectureVideo, getYouTubeID } from '../services/geminiService';
 
 interface DashboardProps {
@@ -42,28 +41,28 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   };
 
   return (
-    <div className="overflow-hidden">
+    <div className="overflow-hidden bg-white">
       {/* Category 1: The Vision (Hero) */}
-      <section className="relative h-[90vh] w-full flex items-center justify-center overflow-hidden">
+      <section className="relative h-[90vh] w-full flex items-center justify-center overflow-hidden bg-[#2D0B26]">
         <div className="absolute inset-0 bg-[#2D0B26]">
           <div className="absolute top-0 right-0 w-[80%] h-full bg-gradient-to-l from-white/5 to-transparent"></div>
           <div className="absolute top-[-20%] left-[-10%] w-full h-[140%] bg-gradient-to-tr from-[#E91E63]/20 via-transparent to-transparent blur-3xl animate-fade-in"></div>
         </div>
         
         <div className="relative z-10 text-center px-6 max-w-5xl space-y-10">
-          <div className="inline-flex items-center space-x-2 bg-white/5 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 text-white/60 text-[10px] font-bold uppercase tracking-[0.3em] animate-slide-up opacity-0">
+          <div className="inline-flex items-center space-x-2 bg-white/5 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 text-white/60 text-[10px] font-bold uppercase tracking-[0.3em] animate-slide-up opacity-0" style={{ animationFillMode: 'forwards' }}>
             <span>01 / The Core Mission</span>
           </div>
           
-          <h1 className="text-6xl md:text-9xl font-medium text-white tracking-tighter leading-[0.85] animate-slide-up opacity-0 stagger-1">
+          <h1 className="text-6xl md:text-9xl font-medium text-white tracking-tighter leading-[0.85] animate-slide-up opacity-0" style={{ animationDelay: '0.1s', animationFillMode: 'forwards' }}>
             Utilize your <br /> <span className="italic font-light text-[#E91E63]">Lecture Gaps</span>
           </h1>
           
-          <p className="text-white/50 text-base md:text-xl max-w-2xl mx-auto font-light leading-relaxed animate-slide-up opacity-0 stagger-2">
+          <p className="text-white/50 text-base md:text-xl max-w-2xl mx-auto font-light leading-relaxed animate-slide-up opacity-0" style={{ animationDelay: '0.2s', animationFillMode: 'forwards' }}>
             Convert dull university lectures into high-impact industry skills. Paste any YouTube link to find out what's missing.
           </p>
           
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-10 animate-slide-up opacity-0 stagger-3">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-10 animate-slide-up opacity-0" style={{ animationDelay: '0.3s', animationFillMode: 'forwards' }}>
             <button 
               onClick={() => onNavigate('courses')}
               className="flex items-center space-x-4 bg-white text-[#2D0B26] px-10 py-5 rounded-full font-bold transition-transform hover:scale-105 group shadow-2xl"
@@ -158,7 +157,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       <section className="bg-white py-40 px-6 md:px-12">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
-            <div className="space-y-8 animate-slide-up opacity-0 stagger-4">
+            <div className="space-y-8 animate-slide-up opacity-0" style={{ animationDelay: '0.4s', animationFillMode: 'forwards' }}>
               <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#E91E63]">02 / The Momentum</span>
               <h2 className="text-5xl md:text-7xl font-medium tracking-tighter leading-[1.1]">
                 Empowering <br /> <span className="text-gray-300 italic">Universities</span> globally.
@@ -175,7 +174,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                 { label: 'Skill Recovery', val: '89%', icon: <Brain size={20} /> },
                 { label: 'Goal Reached', val: '94%', icon: <Target size={20} /> },
               ].map((stat, i) => (
-                <div key={i} className={`bg-gray-50 p-8 rounded-[40px] hover:bg-white hover:shadow-2xl transition-all duration-500 border border-transparent hover:border-gray-100 group animate-slide-up opacity-0 stagger-${i+5}`}>
+                <div key={i} className="bg-gray-50 p-8 rounded-[40px] hover:bg-white hover:shadow-2xl transition-all duration-500 border border-transparent hover:border-gray-100 group animate-slide-up opacity-0" style={{ animationDelay: `${0.5 + i * 0.1}s`, animationFillMode: 'forwards' }}>
                   <div className="text-[#E91E63] mb-6 group-hover:scale-110 transition-transform">{stat.icon}</div>
                   <h4 className="text-4xl font-light mb-2">{stat.val}</h4>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{stat.label}</p>
@@ -198,7 +197,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {MOCK_COURSES.map((course, i) => (
+            {MOCK_COURSES.map((course) => (
               <div 
                 key={course.id} 
                 className="bg-white/5 backdrop-blur-xl border border-white/10 p-10 rounded-[48px] hover:bg-white/10 transition-all group"

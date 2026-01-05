@@ -11,8 +11,12 @@ import AuthFlow from './components/AuthFlow';
 import BottomNav from './components/BottomNav';
 import { supabase } from './lib/supabase';
 import SearchBar from './components/SearchBar';
+import SplashView from './components/SplashView'; // <--- 1. IMPORT THIS
 
 const App: React.FC = () => {
+  // 2. ADD SPLASH STATE
+  const [showSplash, setShowSplash] = useState(true);
+
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [currentView, setCurrentView] = useState<View>('dashboard');
@@ -89,6 +93,12 @@ const App: React.FC = () => {
     setCurrentView('dashboard');
   };
 
+  // 3. SHOW SPLASH SCREEN FIRST
+  // This must be BEFORE the loading check or Auth check
+  if (showSplash) {
+    return <SplashView onFinish={() => setShowSplash(false)} />;
+  }
+
   /* ================= LOADING ================= */
   if (loading) {
     return (
@@ -126,7 +136,6 @@ const App: React.FC = () => {
         ) : null;
 
       case 'quizzes':
-        // ✅ UPDATED: Passing user prop here
         return <MicroLearning user={user} />;
 
       case 'mentors':
