@@ -17,12 +17,12 @@ const genAI = new GoogleGenerativeAI(API_KEY);
 const generateSmartContent = async (prompt: string) => {
   try {
     // Attempt 1: Fast & Cost Effective
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
     return await model.generateContent(prompt);
   } catch (error: any) {
     console.warn("⚠️ Primary model failed. Switching to fallback...");
     // Attempt 2: Fallback (Standard Pro)
-    const fallbackModel = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const fallbackModel = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
     return await fallbackModel.generateContent(prompt);
   }
 };

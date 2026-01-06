@@ -61,11 +61,17 @@ const CourseView: React.FC<CourseViewProps> = ({ onNavigate, initialSearch = '' 
   useEffect(() => {
     const fetchCourses = async () => {
       try {
+        console.log("Attempting to fetch courses from Supabase...");
         const { data, error } = await supabase.from('courses').select('*');
         
-        if (error) throw error;
+        if (error) {
+          console.error("Supabase Error:", error);
+          throw error;
+        }
 
         if (data && data.length > 0) {
+          console.log("Raw Supabase Data Received:", data); // Debugging log
+
           // MAP DB DATA TO FRONTEND INTERFACE
           const mappedCourses: Course[] = data.map((item: any) => ({
             id: item.id,
@@ -73,14 +79,19 @@ const CourseView: React.FC<CourseViewProps> = ({ onNavigate, initialSearch = '' 
             category: item.category,
             thumbnail: item.thumbnail,
             description: item.description,
-            // Check both snake_case (DB) and camelCase
-            videoUrl: item.video_url || item.videoUrl || "", 
+            
+            // ✅ CRITICAL FIX: Robust check for all possible casing of video_url
+            videoUrl: item.video_url || item.videourl || item.videoUrl || "", 
+            
             duration: item.duration,
             skills: item.skills || [],
-            // ✅ FIX: Added progress property to satisfy TypeScript
             progress: item.progress || 0
           }));
+
+          console.log("Final Mapped Courses:", mappedCourses); // Debugging log
           setCourses(mappedCourses);
+        } else {
+          console.warn("Supabase returned no data. Falling back to MOCK_COURSES.");
         }
       } catch (err) {
         console.error("Using Mock Data due to DB error:", err);

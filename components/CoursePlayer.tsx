@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Course } from '../types';
 import { 
   ArrowLeft, 
@@ -8,7 +8,8 @@ import {
   Sparkles, 
   Youtube, 
   Info, 
-  PlayCircle 
+  PlayCircle,
+  AlertTriangle
 } from 'lucide-react';
 
 interface CoursePlayerProps {
@@ -19,25 +20,83 @@ interface CoursePlayerProps {
 const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack }) => {
   const [activeTab, setActiveTab] = useState<'syllabus' | 'quiz' | 'notes'>('syllabus');
   
+  // DEBUGGING: Log the URL to the console immediately
+  useEffect(() => {
+    console.log("--------------------------------");
+    console.log("PLAYER LOADED FOR COURSE:", course.title);
+    console.log("RAW VIDEO URL:", course.videoUrl);
+    console.log("IS YOUTUBE detected?:", course.videoUrl?.includes('youtu'));
+    console.log("--------------------------------");
+  }, [course]);
+
   // Detect if this is an AI-generated recovery path
   const isAiSourced = course.id.toString().startsWith('ai-') || course.id.toString().startsWith('industrial-');
 
-  // Helper to ensure YouTube links are always embeddable
-  const getEmbedUrl = (url: string) => {
-    if (!url) return '';
-    if (url.includes('embed')) return url;
-    
-    // Convert standard watch links to embed links
-    const videoIdMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/)([^&?]*))/);
-    if (videoIdMatch && videoIdMatch[1]) {
-      return `https://www.youtube.com/embed/${videoIdMatch[1]}`;
-    }
-    return url;
+  // 1. HELPER: Detect if it's YouTube
+  const isYouTube = (url: string) => {
+    if (!url) return false;
+    return url.includes('youtube.com') || url.includes('youtu.be');
   };
 
-  const finalVideoUrl = getEmbedUrl(course.videoUrl || '');
+  // 2. HELPER: Get Embed URL for YouTube
+  const getYouTubeEmbed = (url: string) => {
+    if (!url) return '';
+    if (url.includes('embed')) return url;
+    const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/)([^&?]*))/);
+    return match && match[1] ? `https://www.youtube.com/embed/${match[1]}` : url;
+  };
 
-  // Dynamic syllabus based on course data
+  // 3. RENDERER: Decides which player to use
+  const renderPlayer = () => {
+    const url = course.videoUrl;
+
+    // ERROR STATE: No URL found
+    if (!url) {
+      return (
+        <div className="w-full h-full flex flex-col items-center justify-center bg-gray-900 text-white space-y-4">
+          <AlertTriangle size={48} className="text-red-500 opacity-80" />
+          <p className="text-xs font-mono font-bold text-red-400">VIDEO SOURCE MISSING</p>
+          <p className="text-[10px] text-gray-500 max-w-xs text-center">
+            The database has no link for this course. Please check the 'video_url' column in Supabase.
+          </p>
+        </div>
+      );
+    }
+
+    // YOUTUBE STATE
+    if (isYouTube(url)) {
+      return (
+        <iframe 
+          width="100%" 
+          height="100%" 
+          src={`${getYouTubeEmbed(url)}?autoplay=0&modestbranding=1&rel=0`} 
+          title={course.title}
+          frameBorder="0" 
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+          allowFullScreen
+          className="w-full h-full"
+        />
+      );
+    }
+
+    // DIRECT FILE STATE (Supabase/MP4)
+    return (
+      <video 
+        controls 
+        controlsList="nodownload"
+        width="100%" 
+        height="100%"
+        className="w-full h-full object-contain bg-black"
+        key={url} // Force React to reload if URL changes
+      >
+        <source src={url} type="video/mp4" />
+        <p className="text-white text-center pt-20">
+          Your browser does not support the video tag.
+        </p>
+      </video>
+    );
+  };
+
   const syllabusItems = [
     { title: "Foundational Context", duration: "05:00", completed: true },
     { title: "Industrial Bridge Analysis", duration: "12:30", completed: false },
@@ -49,6 +108,7 @@ const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack }) => {
 
   return (
     <div className="min-h-screen bg-[#FDFCFE] animate-in fade-in duration-700">
+      
       {/* Cinematic Player Layout */}
       <div className="max-w-7xl mx-auto px-6 md:px-12 py-12">
         <button 
@@ -63,28 +123,13 @@ const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack }) => {
           {/* Main Content Area */}
           <div className="lg:col-span-8 space-y-8">
             <div className="aspect-video bg-black rounded-[40px] overflow-hidden shadow-2xl relative group">
-              {finalVideoUrl ? (
-                <iframe 
-                  width="100%" 
-                  height="100%" 
-                  src={`${finalVideoUrl}?autoplay=1&modestbranding=1&rel=0`} 
-                  title={course.title}
-                  frameBorder="0" 
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-                  allowFullScreen
-                  className="w-full h-full"
-                ></iframe>
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gray-900 text-white">
-                    <div className="text-center space-y-4">
-                        <PlayCircle size={48} className="mx-auto opacity-50" />
-                        <p className="text-xs font-mono">VIDEO SOURCE UNAVAILABLE</p>
-                    </div>
-                </div>
-              )}
+              
+              {/* --- THE HYBRID PLAYER COMPONENT --- */}
+              {renderPlayer()}
+              {/* ----------------------------------- */}
               
               {isAiSourced && (
-                <div className="absolute top-6 left-6">
+                <div className="absolute top-6 left-6 pointer-events-none">
                   <div className="bg-red-600/90 backdrop-blur-md px-4 py-2 rounded-full flex items-center space-x-2 text-white text-[9px] font-black tracking-widest uppercase shadow-lg">
                     <Youtube size={12} />
                     <span>External Discovery</span>
@@ -196,6 +241,7 @@ const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack }) => {
                   </div>
                 )}
 
+                {/* Keep quiz and notes tabs standard */}
                 {activeTab === 'quiz' && (
                   <div className="flex flex-col items-center justify-center h-full text-center space-y-6">
                     <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center text-gray-200">
@@ -205,9 +251,6 @@ const CoursePlayer: React.FC<CoursePlayerProps> = ({ course, onBack }) => {
                       <h4 className="text-sm font-bold uppercase tracking-widest text-gray-800">Gap Check</h4>
                       <p className="text-[11px] text-gray-400 mt-2 max-w-[200px] mx-auto">Complete the video to unlock industry-standard verification.</p>
                     </div>
-                    <button className="px-8 py-3 bg-gray-100 text-gray-400 rounded-full text-[10px] font-black uppercase tracking-widest cursor-not-allowed">
-                      Module Locked
-                    </button>
                   </div>
                 )}
 
